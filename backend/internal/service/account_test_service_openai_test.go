@@ -562,6 +562,66 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUsesCodexProbeHeaders(t *testin
 	requireOpenAICodexProbeHeaders(t, req.Header)
 }
 
+func TestAccountTestService_OpenAIPAT401DoesNotSetPermanentError(t *testing.T) {
+	newPAT := func(id int64) *Account {
+		return &Account{
+			ID:          id,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Concurrency: 1,
+			Credentials: map[string]any{
+				"access_token":     "pat-token",
+				"auth_mode":        OpenAIAuthModePersonalAccessToken,
+				"openai_auth_mode": "personal_access_token",
+			},
+		}
+	}
+
+	t.Run("responses_probe", func(t *testing.T) {
+		ctx, _ := newTestContext()
+		repo := &openAIAccountTestRepo{}
+		svc := &AccountTestService{
+			accountRepo:  repo,
+			httpUpstream: &queuedHTTPUpstream{responses: []*http.Response{newJSONResponse(http.StatusUnauthorized, `{"error":"bad token"}`)}},
+		}
+
+		err := svc.testOpenAIAccountConnection(ctx, newPAT(801), "gpt-5.4", "", "")
+
+		require.Error(t, err)
+		require.Zero(t, repo.setErrorID)
+	})
+
+	t.Run("chat_completions_probe", func(t *testing.T) {
+		ctx, _ := newTestContext()
+		repo := &openAIAccountTestRepo{}
+		account := newPAT(802)
+		svc := &AccountTestService{
+			accountRepo:  repo,
+			httpUpstream: &queuedHTTPUpstream{responses: []*http.Response{newJSONResponse(http.StatusUnauthorized, `{"error":"bad token"}`)}},
+		}
+
+		err := svc.testOpenAIChatCompletionsConnection(ctx, account, "gpt-5.4", "", "https://api.openai.com", "pat-token")
+
+		require.Error(t, err)
+		require.Zero(t, repo.setErrorID)
+	})
+
+	t.Run("compact_probe", func(t *testing.T) {
+		ctx, _ := newTestContext()
+		repo := &openAIAccountTestRepo{}
+		svc := &AccountTestService{
+			accountRepo:  repo,
+			httpUpstream: &queuedHTTPUpstream{responses: []*http.Response{newJSONResponse(http.StatusUnauthorized, `{"error":"bad token"}`)}},
+		}
+
+		err := svc.testOpenAICompactConnection(ctx, newPAT(803), "gpt-5.4")
+
+		require.Error(t, err)
+		require.Zero(t, repo.setErrorID)
+	})
+}
+
 func TestAccountTestService_OpenAIAPIKeyResponsesUnsupportedUsesChatCompletionsPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, recorder := newTestContext()
