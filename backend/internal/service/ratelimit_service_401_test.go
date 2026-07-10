@@ -65,6 +65,29 @@ type openAI403CounterCacheStub struct {
 	err        error
 }
 
+type openAIPAT401CounterCacheStub struct {
+	counts     []int64
+	resetCalls []int64
+	err        error
+}
+
+func (s *openAIPAT401CounterCacheStub) IncrementOpenAIPAT401Count(_ context.Context, _ int64, _ int) (int64, error) {
+	if s.err != nil {
+		return 0, s.err
+	}
+	if len(s.counts) == 0 {
+		return 1, nil
+	}
+	count := s.counts[0]
+	s.counts = s.counts[1:]
+	return count, nil
+}
+
+func (s *openAIPAT401CounterCacheStub) ResetOpenAIPAT401Count(_ context.Context, accountID int64) error {
+	s.resetCalls = append(s.resetCalls, accountID)
+	return nil
+}
+
 func (s *openAI403CounterCacheStub) IncrementOpenAI403Count(_ context.Context, _ int64, _ int) (int64, error) {
 	if s.err != nil {
 		return 0, s.err
@@ -234,6 +257,67 @@ func TestRateLimitService_HandleUpstreamError_NonOAuth401(t *testing.T) {
 	require.True(t, shouldDisable)
 	require.Equal(t, 1, repo.setErrorCalls)
 	require.Empty(t, invalidator.accounts)
+}
+
+func TestRateLimitService_HandleUpstreamError_OpenAIPAT401Debounced(t *testing.T) {
+	t.Run("first_two_hits_do_not_mark_account_state", func(t *testing.T) {
+		repo := &rateLimitAccountRepoStub{}
+		counter := &openAIPAT401CounterCacheStub{counts: []int64{1, 2}}
+		invalidator := &tokenCacheInvalidatorRecorder{}
+		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+		svc.SetOpenAIPAT401CounterCache(counter)
+		svc.SetTokenCacheInvalidator(invalidator)
+		account := &Account{
+			ID:       4101,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Credentials: map[string]any{
+				"access_token":       "pat-token",
+				"auth_mode":          OpenAIAuthModePersonalAccessToken,
+				"openai_auth_mode":   "personal_access_token",
+				"token_type":         "Bearer",
+				"chatgpt_account_id": "acct",
+			},
+		}
+
+		require.True(t, svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte(`{"error":{"message":"Unauthorized","type":"rejected_by_access_enforcement","code":"no_matching_rule"}}`)))
+		require.True(t, svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte(`{"detail":"Unauthorized"}`)))
+
+		require.Equal(t, 0, repo.setErrorCalls)
+		require.Equal(t, 0, repo.tempCalls)
+		require.Len(t, invalidator.accounts, 2)
+	})
+
+	t.Run("third_hit_temp_unschedules_without_error", func(t *testing.T) {
+		repo := &rateLimitAccountRepoStub{}
+		counter := &openAIPAT401CounterCacheStub{counts: []int64{3}}
+		blocker := &runtimeBlockRecorder{}
+		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+		svc.SetOpenAIPAT401CounterCache(counter)
+		svc.SetAccountRuntimeBlocker(blocker)
+		account := &Account{
+			ID:       4102,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Credentials: map[string]any{
+				"access_token":     "pat-token",
+				"auth_mode":        OpenAIAuthModePersonalAccessToken,
+				"openai_auth_mode": "personal_access_token",
+				"token_type":       "Bearer",
+			},
+		}
+
+		shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte("unauthorized"))
+
+		require.True(t, shouldDisable)
+		require.Equal(t, 0, repo.setErrorCalls)
+		require.Equal(t, 1, repo.tempCalls)
+		require.Equal(t, int64(4102), repo.lastTempID)
+		require.Contains(t, repo.lastTempReason, "OpenAI Codex PAT 401")
+		require.Contains(t, repo.lastTempReason, "3/3")
+		require.Len(t, blocker.accounts, 1)
+		require.Equal(t, "pat_401_burst", blocker.reasons[0])
+	})
 }
 
 // TestRateLimitService_HandleUpstreamError_OAuth401DoesNotOverwriteCredentials
