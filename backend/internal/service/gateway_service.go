@@ -692,6 +692,7 @@ type UpstreamFailoverError struct {
 	SameAccountRetryDelay    time.Duration // 同账号重试的最小间隔；零值使用 handler 默认值
 	SameAccountRetryDeadline time.Time     // 同账号重试截止时间；零值表示仅受 retryLimit 限制
 	SameAccountRetryMax      int           // 可选的错误级同账号重试上限，低于 handler 默认预算时优先采用
+	SameAccountRetryLimit    int           // >0 时硬覆盖账号默认同账号重试次数（仅用于定向策略）
 	RequestScopedTransient   bool          // 故障因素与账号无关（如上游按客户端身份/模型容量降载）：可同账号重试，但不得据此对账号做临时封禁
 	SafeToFailoverAfterWrite bool          // 仅写出 SSE 注释等非语义字节时，仍可在同一客户端流中切换账号
 	Stage                    GatewayFailureStage
@@ -725,6 +726,20 @@ func (e *UpstreamFailoverError) ShouldReportAccountScheduleFailure() bool {
 		return false
 	}
 	return !e.IsCredentialFailure() || e.Scope == GatewayFailureScopeAccount
+}
+
+func (e *UpstreamFailoverError) SameAccountRetryLimitFor(account *Account) int {
+	if e != nil && e.SameAccountRetryLimit > 0 {
+		return e.SameAccountRetryLimit
+	}
+	if account == nil {
+		return 0
+	}
+	limit := account.GetPoolModeRetryCount()
+	if limit > 0 && e != nil && e.SameAccountRetryMax > 0 && e.SameAccountRetryMax < limit {
+		return e.SameAccountRetryMax
+	}
+	return limit
 }
 
 // sseStreamErrorEventError 表示上游 SSE 流体内出现 event:error 帧。

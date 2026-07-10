@@ -425,6 +425,20 @@ func TestHandleFailoverError_CacheBilling(t *testing.T) {
 		require.Zero(t, fs.SwitchCount)
 	})
 
+	t.Run("错误级重试上限在缓存计费判断前生效", func(t *testing.T) {
+		mock := &mockTempUnscheduler{}
+		fs := NewFailoverState(3, true)
+		err := newTestFailoverErr(http.StatusUnauthorized, true, false)
+		err.SameAccountRetryLimit = 1
+
+		action := fs.HandleFailoverError(context.Background(), mock, 100, "openai", 0, err)
+
+		require.Equal(t, FailoverContinue, action)
+		require.Equal(t, 1, fs.SameAccountRetryCount[100])
+		require.False(t, fs.ForceCacheBilling)
+		require.Zero(t, fs.SwitchCount)
+	})
+
 	t.Run("两者均为false时不设置", func(t *testing.T) {
 		mock := &mockTempUnscheduler{}
 		fs := NewFailoverState(3, false)
