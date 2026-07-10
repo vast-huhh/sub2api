@@ -28,6 +28,7 @@ type RateLimitService struct {
 	openAIAPIKeyHealth    OpenAIAPIKeyHealthCache
 	timeoutCounterCache   TimeoutCounterCache
 	openAI403CounterCache OpenAI403CounterCache
+	openAIPAT401Cache     OpenAIPAT401CounterCache
 	settingService        *SettingService
 	tokenCacheInvalidator TokenCacheInvalidator
 	runtimeBlocker        AccountRuntimeBlocker
@@ -91,6 +92,12 @@ const (
 	openAI403CounterWindowMinutes   = 180
 )
 
+const (
+	openAIPAT401CounterWindowSeconds = 120
+	openAIPAT401TempDisableThreshold = 3
+	openAIPAT401Cooldown             = 3 * time.Minute
+)
+
 // NewRateLimitService 创建RateLimitService实例
 func NewRateLimitService(accountRepo AccountRepository, usageRepo UsageLogRepository, cfg *config.Config, geminiQuotaService *GeminiQuotaService, tempUnschedCache TempUnschedCache) *RateLimitService {
 	return &RateLimitService{
@@ -115,6 +122,11 @@ func (s *RateLimitService) SetOpenAIAPIKeyHealthCache(cache OpenAIAPIKeyHealthCa
 // SetOpenAI403CounterCache 设置 OpenAI 403 连续失败计数器（可选依赖）
 func (s *RateLimitService) SetOpenAI403CounterCache(cache OpenAI403CounterCache) {
 	s.openAI403CounterCache = cache
+}
+
+// SetOpenAIPAT401CounterCache sets the short-window OpenAI Codex PAT 401 counter.
+func (s *RateLimitService) SetOpenAIPAT401CounterCache(cache OpenAIPAT401CounterCache) {
+	s.openAIPAT401Cache = cache
 }
 
 // SetSettingService 设置系统设置服务（可选依赖）
@@ -419,6 +431,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		if resolved, rerr := resolveCredentialAccount(ctx, s.accountRepo, account); rerr == nil && resolved != nil {
 			authAccount = resolved
 		}
+		if authAccount.IsOpenAIPersonalAccessToken() {
+			return s.handleOpenAIPAT401(ctx, authAccount, upstreamMsg)
+		}
 		// OpenAI: token_invalidated / token_revoked 表示 token 被永久作废（非过期），直接标记 error
 		openai401Code := extractUpstreamErrorCode(responseBody)
 		if authAccount.Platform == PlatformOpenAI && (openai401Code == "token_invalidated" || openai401Code == "token_revoked") {
@@ -563,6 +578,65 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	}
 
 	return shouldDisable
+}
+
+func (s *RateLimitService) handleOpenAIPAT401(ctx context.Context, account *Account, upstreamMsg string) bool {
+	if account == nil {
+		return true
+	}
+	if s.tokenCacheInvalidator != nil {
+		if err := s.tokenCacheInvalidator.InvalidateToken(ctx, account); err != nil {
+			slog.Warn("openai_pat_401_invalidate_cache_failed", "account_id", account.ID, "error", err)
+		}
+	}
+
+	count := int64(1)
+	if s.openAIPAT401Cache != nil {
+		var err error
+		count, err = s.openAIPAT401Cache.IncrementOpenAIPAT401Count(ctx, account.ID, openAIPAT401CounterWindowSeconds)
+		if err != nil {
+			slog.Warn("openai_pat_401_count_failed", "account_id", account.ID, "error", err)
+			return true
+		}
+	}
+
+	msg := "OpenAI Codex PAT 401"
+	if upstreamMsg != "" {
+		msg += ": " + upstreamMsg
+	}
+	if count < openAIPAT401TempDisableThreshold {
+		slog.Warn("openai_pat_401_ignored",
+			"account_id", account.ID,
+			"count", count,
+			"threshold", openAIPAT401TempDisableThreshold,
+			"window_seconds", openAIPAT401CounterWindowSeconds,
+			"message", msg,
+		)
+		return true
+	}
+
+	until := time.Now().Add(openAIPAT401Cooldown)
+	reason := fmt.Sprintf("%s (%d/%d within %ds); temporarily disabled for %s",
+		msg,
+		count,
+		openAIPAT401TempDisableThreshold,
+		openAIPAT401CounterWindowSeconds,
+		openAIPAT401Cooldown,
+	)
+	s.notifyAccountSchedulingBlocked(account, until, "pat_401_burst")
+	if s.accountRepo != nil {
+		if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+			slog.Warn("openai_pat_401_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
+		}
+	}
+	slog.Warn("openai_pat_401_temp_unschedulable",
+		"account_id", account.ID,
+		"count", count,
+		"threshold", openAIPAT401TempDisableThreshold,
+		"until", until,
+		"message", msg,
+	)
+	return true
 }
 
 // PreCheckUsage proactively checks local quota before dispatching a request.
@@ -2040,7 +2114,7 @@ func (s *RateLimitService) ClearRateLimit(ctx context.Context, accountID int64) 
 			slog.Warn("temp_unsched_cache_delete_failed", "account_id", accountID, "error", err)
 		}
 	}
-	s.ResetOpenAI403Counter(ctx, accountID)
+	s.ResetOpenAISuccessCounters(ctx, accountID)
 	s.notifyAccountSchedulingBlockCleared(accountID)
 	return nil
 }
@@ -2054,11 +2128,28 @@ func (s *RateLimitService) ResetOpenAI403Counter(ctx context.Context, accountID 
 	}
 }
 
+func (s *RateLimitService) ResetOpenAIPAT401Counter(ctx context.Context, accountID int64) {
+	if s == nil || s.openAIPAT401Cache == nil || accountID <= 0 {
+		return
+	}
+	if err := s.openAIPAT401Cache.ResetOpenAIPAT401Count(ctx, accountID); err != nil {
+		slog.Warn("openai_pat_401_reset_failed", "account_id", accountID, "error", err)
+	}
+}
+
+func (s *RateLimitService) ResetOpenAISuccessCounters(ctx context.Context, accountID int64) {
+	s.ResetOpenAI403Counter(ctx, accountID)
+	s.ResetOpenAIPAT401Counter(ctx, accountID)
+}
+
 // RecoverAccountState 按需恢复账号的可恢复运行时状态。
 func (s *RateLimitService) RecoverAccountState(ctx context.Context, accountID int64, options AccountRecoveryOptions) (*SuccessfulTestRecoveryResult, error) {
 	account, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
 		return nil, err
+	}
+	if account.Platform == PlatformOpenAI {
+		defer s.ResetOpenAISuccessCounters(ctx, accountID)
 	}
 
 	result := &SuccessfulTestRecoveryResult{}
@@ -2081,7 +2172,6 @@ func (s *RateLimitService) RecoverAccountState(ctx context.Context, accountID in
 		result.ClearedRateLimit = true
 	}
 	if result.ClearedError || result.ClearedRateLimit {
-		s.ResetOpenAI403Counter(ctx, accountID)
 		if result.ClearedError && !result.ClearedRateLimit {
 			s.notifyAccountSchedulingBlockCleared(accountID)
 		}
