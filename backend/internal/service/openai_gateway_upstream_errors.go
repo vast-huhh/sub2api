@@ -332,8 +332,19 @@ func (s *OpenAIGatewayService) newOpenAIAccountFailoverError(
 	upstreamMsg string,
 	shouldDisable bool,
 	retryableOnSameAccount bool,
+	requestContexts ...context.Context,
 ) *UpstreamFailoverError {
-	return s.newOpenAIAccountFailoverErrorWithClassificationHeaders(account, statusCode, responseHeaders, responseHeaders, responseBody, upstreamMsg, shouldDisable, retryableOnSameAccount)
+	return s.newOpenAIAccountFailoverErrorWithClassificationHeaders(
+		account,
+		statusCode,
+		responseHeaders,
+		responseHeaders,
+		responseBody,
+		upstreamMsg,
+		shouldDisable,
+		retryableOnSameAccount,
+		requestContexts...,
+	)
 }
 
 func (s *OpenAIGatewayService) newOpenAIAccountFailoverErrorWithClassificationHeaders(
@@ -345,8 +356,18 @@ func (s *OpenAIGatewayService) newOpenAIAccountFailoverErrorWithClassificationHe
 	upstreamMsg string,
 	shouldDisable bool,
 	retryableOnSameAccount bool,
+	requestContexts ...context.Context,
 ) *UpstreamFailoverError {
-	oauth429Retry := s.shouldRetryOpenAIOAuth429OnSameAccountWithResponse(account, statusCode, shouldDisable, classificationHeaders, responseBody)
+	policyCtx := context.Background()
+	if len(requestContexts) > 0 && requestContexts[0] != nil {
+		policyCtx = requestContexts[0]
+	}
+	retryableOnSameAccount, sameAccountRetryLimit := s.openAIUpstreamSameAccountRetryPolicy(
+		policyCtx, account, statusCode, retryableOnSameAccount,
+	)
+	oauth429Retry := s.shouldRetryOpenAIOAuth429OnSameAccountWithResponse(
+		account, statusCode, shouldDisable, classificationHeaders, responseBody,
+	)
 	failoverErr := newOpenAIUpstreamFailoverError(
 		statusCode,
 		responseHeaders,
@@ -354,6 +375,7 @@ func (s *OpenAIGatewayService) newOpenAIAccountFailoverErrorWithClassificationHe
 		upstreamMsg,
 		retryableOnSameAccount || oauth429Retry,
 	)
+	failoverErr.SameAccountRetryLimit = sameAccountRetryLimit
 	if oauth429Retry {
 		failoverErr.SameAccountRetryDeadline = s.openAIOAuth429RetryDeadline(account)
 		failoverErr.SameAccountRetryDelay = openAIOAuth429SameAccountRetryDelay(responseHeaders, failoverErr.SameAccountRetryDeadline)
@@ -433,6 +455,35 @@ func (e *UpstreamFailoverError) IsOpenAIRequestBodyTooLarge() bool {
 // recognized provider overload rather than supplied by an unrelated failure.
 func (e *UpstreamFailoverError) IsOpenAICapacityShed() bool {
 	return e != nil && e.RequestScopedTransient && isOpenAIRequestScopedCapacityShed("", e.ResponseBody)
+}
+
+const openAIPAT401SameAccountRetryLimit = 1
+
+func (s *OpenAIGatewayService) openAIUpstreamSameAccountRetryPolicy(ctx context.Context, account *Account, statusCode int, baseRetryable bool) (bool, int) {
+	if s.isOpenAIPAT401ForAccount(ctx, account, statusCode) {
+		return true, openAIPAT401SameAccountRetryLimit
+	}
+	return baseRetryable, 0
+}
+
+func (s *OpenAIGatewayService) isOpenAIPAT401ForAccount(ctx context.Context, account *Account, statusCode int) bool {
+	if statusCode != http.StatusUnauthorized || account == nil {
+		return false
+	}
+	if account.IsOpenAIPersonalAccessToken() {
+		return true
+	}
+	if s == nil || s.accountRepo == nil {
+		return false
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	authAccount, err := resolveCredentialAccount(ctx, s.accountRepo, account)
+	if err != nil || authAccount == nil {
+		return false
+	}
+	return authAccount.IsOpenAIPersonalAccessToken()
 }
 
 func marshalOpenAIUpstreamJSON(v any) ([]byte, error) {
@@ -649,10 +700,12 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		Detail:             upstreamDetail,
 	})
 	if shouldDisable {
+		retryableOnSameAccount, sameAccountRetryLimit := s.openAIUpstreamSameAccountRetryPolicy(c.Request.Context(), account, resp.StatusCode, false)
 		return nil, &UpstreamFailoverError{
 			StatusCode:             resp.StatusCode,
 			ResponseBody:           body,
-			RetryableOnSameAccount: false,
+			RetryableOnSameAccount: retryableOnSameAccount,
+			SameAccountRetryLimit:  sameAccountRetryLimit,
 		}
 	}
 
@@ -848,10 +901,12 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 		Detail:             upstreamDetail,
 	})
 	if shouldDisable {
+		retryableOnSameAccount, sameAccountRetryLimit := s.openAIUpstreamSameAccountRetryPolicy(c.Request.Context(), account, resp.StatusCode, false)
 		return nil, &UpstreamFailoverError{
 			StatusCode:             resp.StatusCode,
 			ResponseBody:           body,
-			RetryableOnSameAccount: false,
+			RetryableOnSameAccount: retryableOnSameAccount,
+			SameAccountRetryLimit:  sameAccountRetryLimit,
 		}
 	}
 
