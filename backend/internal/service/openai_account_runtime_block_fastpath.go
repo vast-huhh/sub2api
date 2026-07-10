@@ -177,7 +177,8 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	tempModel := tempUnschedulableModel(stateCtx, nil)
 	modelTempMatched := tempModel != "" && tempUnschedRulesApply(account, statusCode, responseBody, tempModel) &&
 		len(matchTempUnschedulableRules(account, statusCode, responseBody)) > 0
-	if shouldDisable && !modelTempMatched {
+	if shouldDisable && !modelTempMatched &&
+		!(statusCode == http.StatusUnauthorized && account.IsOpenAIPersonalAccessToken()) {
 		s.BlockAccountScheduling(account, time.Time{}, "upstream_disable")
 	}
 	// Pool-mode retryable upstream errors are already bounded by the request-local
