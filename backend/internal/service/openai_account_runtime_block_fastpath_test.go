@@ -731,6 +731,48 @@ func TestOpenAIPAT401_DoesNotRuntimeBlockBeforeBurst(t *testing.T) {
 	require.Equal(t, 0, repo.tempCalls)
 }
 
+func TestOpenAIPAT401_ShadowAuthPATDoesNotRuntimeBlockBeforeBurst(t *testing.T) {
+	parentID := int64(4801)
+	parent := &Account{
+		ID:       parentID,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "pat-token",
+			"auth_mode":    OpenAIAuthModePersonalAccessToken,
+			"token_type":   "Bearer",
+		},
+	}
+	shadow := &Account{
+		ID:              4802,
+		ParentAccountID: &parentID,
+		Platform:        PlatformOpenAI,
+		Type:            AccountTypeOAuth,
+	}
+	repo := &rateLimitAccountRepoStub{
+		mockAccountRepoForGemini: mockAccountRepoForGemini{
+			accountsByID: map[int64]*Account{parentID: parent},
+		},
+	}
+	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	rateLimitService.SetOpenAIPAT401CounterCache(&openAIPAT401CounterCacheStub{counts: []int64{1}})
+	svc := &OpenAIGatewayService{accountRepo: repo, rateLimitService: rateLimitService}
+	rateLimitService.SetAccountRuntimeBlocker(svc)
+
+	shouldDisable := svc.handleOpenAIAccountUpstreamError(
+		context.Background(),
+		shadow,
+		http.StatusUnauthorized,
+		http.Header{},
+		[]byte(`{"error":{"message":"Unauthorized","code":"no_matching_rule"}}`),
+	)
+
+	require.True(t, shouldDisable)
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(shadow))
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 0, repo.tempCalls)
+}
+
 func TestOpenAIRuntimeBlock_DoesNotShortenExistingBlock(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	account := &Account{ID: 46, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
