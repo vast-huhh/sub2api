@@ -9,3 +9,9 @@ type OpenAI403CounterCache interface {
 	// ResetOpenAI403Count 成功后清零计数器。
 	ResetOpenAI403Count(ctx context.Context, accountID int64) error
 }
+
+// OpenAIPAT401CounterCache tracks short bursts of OpenAI Codex PAT 401 responses.
+type OpenAIPAT401CounterCache interface {
+	IncrementOpenAIPAT401Count(ctx context.Context, accountID int64, windowSeconds int) (int64, error)
+	ResetOpenAIPAT401Count(ctx context.Context, accountID int64) error
+}
