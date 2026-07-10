@@ -1919,6 +1919,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 				upstreamMsg,
 				shouldDisable,
 				!shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+				upstreamCtx,
 			)
 		}
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
@@ -2181,5 +2182,6 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthResponseError(
 		upstreamErr.clientMessage(),
 		shouldDisable,
 		!shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(upstreamErr.StatusCode),
+		ctx,
 	)
 }
