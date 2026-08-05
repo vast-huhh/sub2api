@@ -199,6 +199,81 @@ func TestForwardAsChatCompletions_UnknownModelWithoutMessagesDispatchKeepsReques
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestForwardAsChatCompletions_DerivesReasoningEffortFromModelSuffix(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		account    *Account
+		effortPath string
+	}{
+		{
+			name: "oauth responses upstream",
+			account: &Account{
+				ID:          11,
+				Name:        "openai-oauth-suffix",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"access_token":       "oauth-token",
+					"chatgpt_account_id": "chatgpt-acc",
+				},
+			},
+			effortPath: "reasoning.effort",
+		},
+		{
+			name: "api key responses upstream",
+			account: &Account{
+				ID:          12,
+				Name:        "openai-apikey-responses-suffix",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{"api_key": "sk-responses"},
+				Extra:       map[string]any{"openai_responses_supported": true},
+			},
+			effortPath: "reasoning.effort",
+		},
+		{
+			name: "api key raw chat completions upstream",
+			account: &Account{
+				ID:          13,
+				Name:        "openai-apikey-raw-suffix",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{"api_key": "sk-raw"},
+				Extra:       map[string]any{"openai_responses_supported": false},
+			},
+			effortPath: "reasoning_effort",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := []byte(`{"model":"gpt-5.6-sol-xhigh","messages":[{"role":"user","content":"hello"}],"stream":false}`)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_chat_reasoning_suffix"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"stop after request capture"}}`)),
+			}}
+			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+
+			result, err := svc.ForwardAsChatCompletions(context.Background(), c, tt.account, body, "", "")
+			require.Error(t, err)
+			require.Nil(t, result)
+			require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(upstream.lastBody, "model").String())
+			require.Equal(t, "xhigh", gjson.GetBytes(upstream.lastBody, tt.effortPath).String())
+		})
+	}
+}
+
 func TestForwardAsChatCompletions_APIKeyPropagatesPromptCacheKeyInResponsesBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

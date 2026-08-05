@@ -806,6 +806,9 @@ func normalizeRequestedModelForLookup(platform, requestedModel string) string {
 	if trimmed == "" {
 		return ""
 	}
+	if platform == PlatformOpenAI {
+		return NormalizeOpenAICompatRequestedModel(trimmed)
+	}
 	if platform != PlatformGemini && platform != PlatformAntigravity {
 		return trimmed
 	}
