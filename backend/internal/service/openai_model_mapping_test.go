@@ -111,6 +111,33 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 			expectedModel:  "gpt-5.5-pro",
 		},
 		{
+			name: "openai reasoning suffix resolves through base model mapping",
+			account: &Account{
+				Platform: PlatformOpenAI,
+				Credentials: map[string]any{
+					"model_mapping": map[string]any{
+						"gpt-5.6-sol": "gpt-5.6-sol",
+					},
+				},
+			},
+			requestedModel: "gpt-5.6-sol-xhigh",
+			expectedModel:  "gpt-5.6-sol",
+		},
+		{
+			name: "exact reasoning suffix mapping wins over normalized fallback",
+			account: &Account{
+				Platform: PlatformOpenAI,
+				Credentials: map[string]any{
+					"model_mapping": map[string]any{
+						"gpt-5.6-sol":       "gpt-5.6-sol",
+						"gpt-5.6-sol-xhigh": "custom-xhigh-model",
+					},
+				},
+			},
+			requestedModel: "gpt-5.6-sol-xhigh",
+			expectedModel:  "custom-xhigh-model",
+		},
+		{
 			name: "ordinary compact-spelled gpt5.5 request keeps requested model",
 			account: &Account{
 				Credentials: map[string]any{},
@@ -290,6 +317,42 @@ func TestResolveOpenAIForwardMappedModels_CompactMappingPrecedence(t *testing.T)
 			}
 			if scheduler := resolveOpenAIAccountUpstreamModelForRequest(tt.account, "gpt-5.5", tt.requireCompact); scheduler != upstream {
 				t.Fatalf("scheduler model %q disagrees with Forward model %q", scheduler, upstream)
+			}
+		})
+	}
+}
+
+func TestNormalizeOpenAIChatCompletionsModelForUpstream(t *testing.T) {
+	tests := []struct {
+		name    string
+		account *Account
+		model   string
+		want    string
+	}{
+		{
+			name:    "oauth strips GPT-5.6 reasoning suffix",
+			account: &Account{Type: AccountTypeOAuth},
+			model:   "gpt-5.6-sol-xhigh",
+			want:    "gpt-5.6-sol",
+		},
+		{
+			name:    "api key strips GPT-5.6 reasoning suffix",
+			account: &Account{Type: AccountTypeAPIKey},
+			model:   "gpt-5.6-sol-xhigh",
+			want:    "gpt-5.6-sol",
+		},
+		{
+			name:    "api key preserves unrelated model",
+			account: &Account{Type: AccountTypeAPIKey},
+			model:   "custom-xhigh-model",
+			want:    "custom-xhigh-model",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeOpenAIChatCompletionsModelForUpstream(tt.account, tt.model); got != tt.want {
+				t.Fatalf("normalizeOpenAIChatCompletionsModelForUpstream(...) = %q, want %q", got, tt.want)
 			}
 		})
 	}

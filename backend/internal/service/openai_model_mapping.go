@@ -21,6 +21,14 @@ func resolveOpenAIForwardModel(account *Account, requestedModel, messagesDispatc
 	return mappedModel
 }
 
+// normalizeOpenAIChatCompletionsModelForUpstream resolves reasoning-suffix
+// aliases for both OAuth and API key Chat Completions upstreams. Keeping this
+// scoped to the compatibility endpoint avoids changing raw /responses model
+// passthrough semantics for API key accounts.
+func normalizeOpenAIChatCompletionsModelForUpstream(account *Account, model string) string {
+	return normalizeOpenAIModelForUpstream(account, NormalizeOpenAICompatRequestedModel(model))
+}
+
 // openAIOAuthForeignModelPrefixes 列出明确属于其他厂商家族的模型名前缀。
 // Codex 上游不可能服务这些模型：转发阶段 normalizeOpenAIModelForUpstream
 // 对未知模型原样透传，上游必然返回不可重试的 400。
