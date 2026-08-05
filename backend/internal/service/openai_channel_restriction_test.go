@@ -9,6 +9,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOpenAIResolveChannelMappingReasoningSuffixFallsBackToBaseModel(t *testing.T) {
+	t.Parallel()
+
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:       1,
+		Status:   StatusActive,
+		GroupIDs: []int64{10},
+		ModelMapping: map[string]map[string]string{
+			PlatformOpenAI: {
+				"gpt-5.6-sol": "gpt-5.6-sol-upstream",
+			},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+
+	result := svc.ResolveChannelMapping(context.Background(), 10, "gpt-5.6-sol-xhigh")
+	require.True(t, result.Mapped)
+	require.Equal(t, "gpt-5.6-sol-upstream", result.MappedModel)
+}
+
+func TestOpenAIResolveChannelMappingReasoningSuffixExactMappingWins(t *testing.T) {
+	t.Parallel()
+
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:       1,
+		Status:   StatusActive,
+		GroupIDs: []int64{10},
+		ModelMapping: map[string]map[string]string{
+			PlatformOpenAI: {
+				"gpt-5.6-sol":       "gpt-5.6-sol-upstream",
+				"gpt-5.6-sol-xhigh": "custom-xhigh-upstream",
+			},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+
+	result := svc.ResolveChannelMapping(context.Background(), 10, "gpt-5.6-sol-xhigh")
+	require.True(t, result.Mapped)
+	require.Equal(t, "custom-xhigh-upstream", result.MappedModel)
+}
+
+func TestOpenAICheckChannelPricingRestrictionAllowsReasoningSuffixViaBaseModel(t *testing.T) {
+	t.Parallel()
+
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:                 1,
+		Status:             StatusActive,
+		GroupIDs:           []int64{10},
+		RestrictModels:     true,
+		BillingModelSource: BillingModelSourceRequested,
+		ModelPricing: []ChannelModelPricing{
+			{Platform: PlatformOpenAI, Models: []string{"gpt-5.6-sol"}},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+	groupID := int64(10)
+
+	require.False(t, svc.checkChannelPricingRestriction(context.Background(), &groupID, "gpt-5.6-sol-xhigh"))
+}
+
 func TestOpenAISelectAccountForModelWithExclusions_ChannelMappedRestrictionRejectsEarly(t *testing.T) {
 	t.Parallel()
 
