@@ -90,6 +90,55 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 	}
 }
 
+func TestApplyOpenAIChatCompletionsReasoningSuffix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		body        string
+		effortPath  string
+		wantEffort  string
+		wantChanged bool
+	}{
+		{
+			name:        "chat completions derives xhigh",
+			body:        `{"model":"gpt-5.6-sol-xhigh","messages":[{"role":"user","content":"hello"}]}`,
+			effortPath:  "reasoning_effort",
+			wantEffort:  "xhigh",
+			wantChanged: true,
+		},
+		{
+			name:        "explicit chat completions effort wins",
+			body:        `{"model":"gpt-5.6-sol-xhigh","reasoning_effort":"low","messages":[{"role":"user","content":"hello"}]}`,
+			effortPath:  "reasoning_effort",
+			wantEffort:  "low",
+			wantChanged: false,
+		},
+		{
+			name:        "responses shaped body derives nested effort",
+			body:        `{"model":"gpt-5.6-sol-xhigh","input":"hello"}`,
+			effortPath:  "reasoning.effort",
+			wantEffort:  "xhigh",
+			wantChanged: true,
+		},
+		{
+			name:        "missing gpt prefix is not treated as an alias",
+			body:        `{"model":"5.6-sol-xhigh","messages":[{"role":"user","content":"hello"}]}`,
+			effortPath:  "reasoning_effort",
+			wantChanged: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, changed := ApplyOpenAIChatCompletionsReasoningSuffix([]byte(tt.body))
+			require.Equal(t, tt.wantChanged, changed)
+			require.Equal(t, tt.wantEffort, gjson.GetBytes(got, tt.effortPath).String())
+			require.Equal(t, gjson.Get(tt.body, "model").String(), gjson.GetBytes(got, "model").String())
+		})
+	}
+}
+
 func TestApplyOpenAICompatModelNormalization(t *testing.T) {
 	t.Parallel()
 
