@@ -81,6 +81,12 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 		return nil, err
 	}
 
+	// Handler callers apply this before group effort policy enforcement. Keep an
+	// idempotent service-level fallback for internal callers and direct tests.
+	if normalizedBody, changed := ApplyOpenAIChatCompletionsReasoningSuffix(body); changed {
+		body = normalizedBody
+	}
+
 	restrictionResult := s.detectCodexClientRestriction(c, account, body)
 	logCodexCLIOnlyDetection(ctx, c, account, getAPIKeyIDFromContext(c), restrictionResult, body)
 	if restrictionResult.Enabled && !restrictionResult.Matched {
@@ -168,7 +174,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	// 2. Resolve model mapping early so compat prompt_cache_key injection can
 	// derive a stable seed from the final upstream model family.
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	upstreamModel := normalizeOpenAIChatCompletionsModelForUpstream(account, billingModel)
 
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	compatPromptCacheInjected := false

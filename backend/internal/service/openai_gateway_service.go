@@ -574,7 +574,20 @@ func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupI
 	if s.channelService == nil {
 		return ChannelMappingResult{MappedModel: model}
 	}
-	return s.channelService.ResolveChannelMapping(ctx, groupID, model)
+	result := s.channelService.ResolveChannelMapping(ctx, groupID, model)
+	if result.Mapped {
+		return result
+	}
+
+	normalizedModel := NormalizeOpenAICompatRequestedModel(model)
+	if normalizedModel == model {
+		return result
+	}
+	normalizedResult := s.channelService.ResolveChannelMapping(ctx, groupID, normalizedModel)
+	if normalizedResult.Mapped {
+		return normalizedResult
+	}
+	return result
 }
 
 // IsModelRestricted 检查模型是否被渠道限制（代理到 ChannelService）
@@ -588,10 +601,10 @@ func (s *OpenAIGatewayService) IsModelRestricted(ctx context.Context, groupID in
 // ResolveChannelMappingAndRestrict 解析渠道映射。
 // 模型限制检查已移至调度阶段，restricted 始终返回 false。
 func (s *OpenAIGatewayService) ResolveChannelMappingAndRestrict(ctx context.Context, groupID *int64, model string) (ChannelMappingResult, bool) {
-	if s.channelService == nil {
+	if s.channelService == nil || groupID == nil {
 		return ChannelMappingResult{MappedModel: model}, false
 	}
-	return s.channelService.ResolveChannelMappingAndRestrict(ctx, groupID, model)
+	return s.ResolveChannelMapping(ctx, *groupID, model), false
 }
 
 func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
@@ -613,12 +626,16 @@ func (s *OpenAIGatewayService) checkChannelPricingRestriction(ctx context.Contex
 	if groupID == nil || s.channelService == nil || requestedModel == "" {
 		return false
 	}
-	mapping := s.channelService.ResolveChannelMapping(ctx, *groupID, requestedModel)
+	mapping := s.ResolveChannelMapping(ctx, *groupID, requestedModel)
 	billingModel := billingModelForRestriction(mapping.BillingModelSource, requestedModel, mapping.MappedModel)
 	if billingModel == "" {
 		return false
 	}
-	return s.channelService.IsModelRestricted(ctx, *groupID, billingModel)
+	if !s.channelService.IsModelRestricted(ctx, *groupID, billingModel) {
+		return false
+	}
+	normalizedModel := NormalizeOpenAICompatRequestedModel(billingModel)
+	return normalizedModel == billingModel || s.channelService.IsModelRestricted(ctx, *groupID, normalizedModel)
 }
 
 func (s *OpenAIGatewayService) isUpstreamModelRestrictedByChannel(ctx context.Context, groupID int64, account *Account, requestedModel string, requireCompact bool) bool {
