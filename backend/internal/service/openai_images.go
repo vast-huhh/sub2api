@@ -676,9 +676,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			})
 			shouldDisable := s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody, upstreamModel)
 			baseRetryable := !shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)
-			return nil, s.newOpenAIAccountFailoverError(
-				account, resp.StatusCode, resp.Header, respBody, upstreamMsg, shouldDisable, baseRetryable, upstreamCtx,
-			)
+			retryableOnSameAccount, sameAccountRetryLimit := s.openAIUpstreamSameAccountRetryPolicy(upstreamCtx, account, resp.StatusCode, baseRetryable)
+			if account.IsOpenAIOAuthLike() && (resp.StatusCode == http.StatusTooManyRequests || sameAccountRetryLimit > 0) {
+				return nil, s.newOpenAIAccountFailoverError(
+					account, resp.StatusCode, resp.Header, respBody, upstreamMsg, shouldDisable, baseRetryable, upstreamCtx,
+				)
+			}
+			if isOpenAIHTTPUpstreamAccessStateError(resp.StatusCode, upstreamMsg, respBody) {
+				return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMsg, retryableOnSameAccount)
+			}
+			return nil, &UpstreamFailoverError{
+				StatusCode:             resp.StatusCode,
+				ResponseBody:           respBody,
+				RetryableOnSameAccount: retryableOnSameAccount,
+				SameAccountRetryLimit:  sameAccountRetryLimit,
+			}
 		}
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
 	}
