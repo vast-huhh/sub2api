@@ -141,9 +141,21 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 			})
 			shouldDisable := s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 			baseRetryable := !shouldDisable && account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)
-			return nil, s.newOpenAIAccountFailoverError(
-				account, resp.StatusCode, resp.Header, respBody, upstreamMsg, shouldDisable, baseRetryable, ctx,
-			)
+			retryableOnSameAccount, sameAccountRetryLimit := s.openAIUpstreamSameAccountRetryPolicy(ctx, account, resp.StatusCode, baseRetryable)
+			if account.IsOpenAIOAuth() && (resp.StatusCode == http.StatusTooManyRequests || sameAccountRetryLimit > 0) {
+				return nil, s.newOpenAIAccountFailoverError(
+					account, resp.StatusCode, resp.Header, respBody, upstreamMsg, shouldDisable, baseRetryable, ctx,
+				)
+			}
+			if isOpenAIHTTPUpstreamAccessStateError(resp.StatusCode, upstreamMsg, respBody) {
+				return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMsg, retryableOnSameAccount)
+			}
+			return nil, &UpstreamFailoverError{
+				StatusCode:             resp.StatusCode,
+				ResponseBody:           respBody,
+				RetryableOnSameAccount: retryableOnSameAccount,
+				SameAccountRetryLimit:  sameAccountRetryLimit,
+			}
 		}
 		writeOpenAIEmbeddingsUpstreamResponse(c, resp, respBody, s.responseHeaderFilter)
 		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)
