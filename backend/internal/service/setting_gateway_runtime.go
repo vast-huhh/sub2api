@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -458,10 +459,17 @@ func (s *SettingService) MigrateOpenAIAllowClaudeCodeCodexPluginSetting(ctx cont
 	return nil
 }
 
+const preserveGrokDefaultTextModelEnv = "SUB2API_PRESERVE_GROK_DEFAULT_TEXT_MODEL"
+
 // MigrateGrokDefaultTextModel upgrades the pre-4.6 built-in default for
-// existing installations. Explicit operator choices are left untouched.
+// existing installations. Explicit operator choices are left untouched. A
+// deployment may disable this one-way migration when its stored 4.5 value is
+// an intentional operator choice rather than the old built-in default.
 func (s *SettingService) MigrateGrokDefaultTextModel(ctx context.Context) error {
 	if s == nil || s.settingRepo == nil {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv(preserveGrokDefaultTextModelEnv)), "true") {
 		return nil
 	}
 	if ctx == nil {
