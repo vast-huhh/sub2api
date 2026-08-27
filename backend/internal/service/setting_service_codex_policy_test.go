@@ -204,6 +204,18 @@ func TestMigrateCodexBodyFingerprintToSignals(t *testing.T) {
 }
 
 func TestMigrateGrokDefaultTextModel(t *testing.T) {
+	t.Run("preserves legacy value when explicitly requested", func(t *testing.T) {
+		t.Setenv(preserveGrokDefaultTextModelEnv, "true")
+		repo := &codexPolicyMigrationRepoStub{values: map[string]string{
+			SettingKeyGrokDefaultTextModel: "grok-4.5",
+		}}
+		svc := NewSettingService(repo, &config.Config{})
+		require.NoError(t, svc.MigrateGrokDefaultTextModel(context.Background()))
+		require.Equal(t, "grok-4.5", repo.values[SettingKeyGrokDefaultTextModel])
+		_, wrote := repo.sets[SettingKeyGrokDefaultTextModel]
+		require.False(t, wrote)
+	})
+
 	t.Run("upgrades legacy built-in default", func(t *testing.T) {
 		repo := &codexPolicyMigrationRepoStub{values: map[string]string{
 			SettingKeyGrokDefaultTextModel: "grok-4.5",
