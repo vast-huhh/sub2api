@@ -110,6 +110,16 @@ func ValidityDays(v int) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldValidityDays, v))
 }
 
+// BalanceCardPlanID applies equality check predicate on the "balance_card_plan_id" field. It's identical to BalanceCardPlanIDEQ.
+func BalanceCardPlanID(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanName applies equality check predicate on the "balance_card_plan_name" field. It's identical to BalanceCardPlanNameEQ.
+func BalanceCardPlanName(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldBalanceCardPlanName, v))
+}
+
 // CodeEQ applies the EQ predicate on the "code" field.
 func CodeEQ(v string) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldCode, v))
@@ -658,6 +668,121 @@ func ValidityDaysLT(v int) predicate.RedeemCode {
 // ValidityDaysLTE applies the LTE predicate on the "validity_days" field.
 func ValidityDaysLTE(v int) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldLTE(FieldValidityDays, v))
+}
+
+// BalanceCardPlanIDEQ applies the EQ predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDEQ(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanIDNEQ applies the NEQ predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDNEQ(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanIDIn applies the In predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDIn(vs ...int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldBalanceCardPlanID, vs...))
+}
+
+// BalanceCardPlanIDNotIn applies the NotIn predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDNotIn(vs ...int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldBalanceCardPlanID, vs...))
+}
+
+// BalanceCardPlanIDGT applies the GT predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDGT(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGT(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanIDGTE applies the GTE predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDGTE(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGTE(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanIDLT applies the LT predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDLT(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLT(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanIDLTE applies the LTE predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDLTE(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLTE(FieldBalanceCardPlanID, v))
+}
+
+// BalanceCardPlanIDIsNil applies the IsNil predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDIsNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIsNull(FieldBalanceCardPlanID))
+}
+
+// BalanceCardPlanIDNotNil applies the NotNil predicate on the "balance_card_plan_id" field.
+func BalanceCardPlanIDNotNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotNull(FieldBalanceCardPlanID))
+}
+
+// BalanceCardPlanNameEQ applies the EQ predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameEQ(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameNEQ applies the NEQ predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameNEQ(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameIn applies the In predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameIn(vs ...string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldBalanceCardPlanName, vs...))
+}
+
+// BalanceCardPlanNameNotIn applies the NotIn predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameNotIn(vs ...string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldBalanceCardPlanName, vs...))
+}
+
+// BalanceCardPlanNameGT applies the GT predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameGT(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGT(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameGTE applies the GTE predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameGTE(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldGTE(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameLT applies the LT predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameLT(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLT(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameLTE applies the LTE predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameLTE(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldLTE(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameContains applies the Contains predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameContains(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldContains(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameHasPrefix applies the HasPrefix predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameHasPrefix(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldHasPrefix(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameHasSuffix applies the HasSuffix predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameHasSuffix(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldHasSuffix(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameEqualFold applies the EqualFold predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameEqualFold(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEqualFold(FieldBalanceCardPlanName, v))
+}
+
+// BalanceCardPlanNameContainsFold applies the ContainsFold predicate on the "balance_card_plan_name" field.
+func BalanceCardPlanNameContainsFold(v string) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldContainsFold(FieldBalanceCardPlanName, v))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.

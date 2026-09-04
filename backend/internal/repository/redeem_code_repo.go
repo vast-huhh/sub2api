@@ -34,6 +34,8 @@ func (r *redeemCodeRepository) Create(ctx context.Context, code *service.RedeemC
 		SetNillableUsedBy(code.UsedBy).
 		SetNillableUsedAt(code.UsedAt).
 		SetNillableGroupID(code.GroupID).
+		SetNillableBalanceCardPlanID(code.BalanceCardPlanID).
+		SetBalanceCardPlanName(code.BalanceCardPlanName).
 		Save(ctx)
 	if err == nil {
 		code.ID = created.ID
@@ -61,6 +63,8 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 			SetNillableUsedBy(c.UsedBy).
 			SetNillableUsedAt(c.UsedAt).
 			SetNillableGroupID(c.GroupID)
+		b.SetNillableBalanceCardPlanID(c.BalanceCardPlanID).
+			SetBalanceCardPlanName(c.BalanceCardPlanName)
 		builders = append(builders, b)
 	}
 
@@ -224,6 +228,12 @@ func (r *redeemCodeRepository) Update(ctx context.Context, code *service.RedeemC
 	} else {
 		up.ClearExpiresAt()
 	}
+	if code.BalanceCardPlanID != nil {
+		up.SetBalanceCardPlanID(*code.BalanceCardPlanID)
+	} else {
+		up.ClearBalanceCardPlanID()
+	}
+	up.SetBalanceCardPlanName(code.BalanceCardPlanName)
 
 	updated, err := up.Save(ctx)
 	if err != nil {
@@ -413,18 +423,20 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 		return nil
 	}
 	out := &service.RedeemCode{
-		ID:           m.ID,
-		Code:         m.Code,
-		Type:         m.Type,
-		Value:        m.Value,
-		Status:       m.Status,
-		UsedBy:       m.UsedBy,
-		UsedAt:       m.UsedAt,
-		Notes:        derefString(m.Notes),
-		CreatedAt:    m.CreatedAt,
-		ExpiresAt:    m.ExpiresAt,
-		GroupID:      m.GroupID,
-		ValidityDays: m.ValidityDays,
+		ID:                  m.ID,
+		Code:                m.Code,
+		Type:                m.Type,
+		Value:               m.Value,
+		Status:              m.Status,
+		UsedBy:              m.UsedBy,
+		UsedAt:              m.UsedAt,
+		Notes:               derefString(m.Notes),
+		CreatedAt:           m.CreatedAt,
+		ExpiresAt:           m.ExpiresAt,
+		GroupID:             m.GroupID,
+		ValidityDays:        m.ValidityDays,
+		BalanceCardPlanID:   m.BalanceCardPlanID,
+		BalanceCardPlanName: m.BalanceCardPlanName,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)

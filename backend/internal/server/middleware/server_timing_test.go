@@ -114,6 +114,7 @@ func TestIsUserTimingPath(t *testing.T) {
 		{"/api/v1/announcements", true},
 		{"/api/v1/redeem/history", true},
 		{"/api/v1/subscriptions/active", true},
+		{"/api/v1/balance-cards/9/ledger", true},
 		{"/api/v1/channel-monitors", true},
 		{"/api/v1/payment/config", true},
 		{"/api/v1/payment/orders/my", true},

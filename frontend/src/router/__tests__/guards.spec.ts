@@ -118,8 +118,10 @@ function simulateGuard(
   if (authState.isSimpleMode) {
     const restrictedPaths = [
       '/admin/subscriptions',
+      '/admin/balance-cards',
       '/admin/redeem',
       '/subscriptions',
+      '/balance-cards',
       '/redeem',
     ]
     if (restrictedPaths.some((path) => toPath.startsWith(path))) {

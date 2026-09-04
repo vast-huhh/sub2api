@@ -72,6 +72,12 @@ func (RedeemCode) Fields() []ent.Field {
 			Nillable(),
 		field.Int("validity_days").
 			Default(30),
+		field.Int64("balance_card_plan_id").
+			Optional().
+			Nillable(),
+		field.String("balance_card_plan_name").
+			MaxLen(100).
+			Default(""),
 	}
 }
 
@@ -95,5 +101,6 @@ func (RedeemCode) Indexes() []ent.Index {
 		index.Fields("used_by"),
 		index.Fields("group_id"),
 		index.Fields("expires_at"),
+		index.Fields("balance_card_plan_id"),
 	}
 }
