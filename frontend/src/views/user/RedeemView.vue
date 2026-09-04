@@ -114,6 +114,12 @@
                         }})</span
                       >
                     </p>
+                    <p v-else-if="redeemResult.type === 'balance_card'" class="font-medium">
+                      {{ t('redeem.balanceCardAssigned') }}
+                      <span v-if="redeemResult.balance_card_plan_name">
+                        - {{ redeemResult.balance_card_plan_name }}
+                      </span>
+                    </p>
                     <p v-if="redeemResult.new_balance !== undefined">
                       {{ t('redeem.newBalance') }}:
                       <span class="font-semibold">${{ redeemResult.new_balance.toFixed(2) }}</span>
@@ -240,11 +246,13 @@
                       ? item.value >= 0
                         ? 'bg-emerald-100 dark:bg-emerald-900/30'
                         : 'bg-red-100 dark:bg-red-900/30'
-                      : isSubscriptionType(item.type)
-                        ? 'bg-purple-100 dark:bg-purple-900/30'
-                        : item.value >= 0
-                          ? 'bg-blue-100 dark:bg-blue-900/30'
-                          : 'bg-orange-100 dark:bg-orange-900/30'
+                      : isBalanceCardType(item.type)
+                        ? 'bg-teal-100 dark:bg-teal-900/30'
+                        : isSubscriptionType(item.type)
+                          ? 'bg-purple-100 dark:bg-purple-900/30'
+                          : item.value >= 0
+                            ? 'bg-blue-100 dark:bg-blue-900/30'
+                            : 'bg-orange-100 dark:bg-orange-900/30'
                   ]"
                 >
                   <!-- 余额类型图标 -->
@@ -257,6 +265,13 @@
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-red-600 dark:text-red-400'
                     "
+                  />
+                  <!-- 余额卡类型图标 -->
+                  <Icon
+                    v-else-if="isBalanceCardType(item.type)"
+                    name="creditCard"
+                    size="md"
+                    class="text-teal-600 dark:text-teal-400"
                   />
                   <!-- 订阅类型图标 -->
                   <Icon
@@ -294,11 +309,13 @@
                       ? item.value >= 0
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-red-600 dark:text-red-400'
-                      : isSubscriptionType(item.type)
-                        ? 'text-purple-600 dark:text-purple-400'
-                        : item.value >= 0
-                          ? 'text-blue-600 dark:text-blue-400'
-                          : 'text-orange-600 dark:text-orange-400'
+                      : isBalanceCardType(item.type)
+                        ? 'text-teal-600 dark:text-teal-400'
+                        : isSubscriptionType(item.type)
+                          ? 'text-purple-600 dark:text-purple-400'
+                          : item.value >= 0
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : 'text-orange-600 dark:text-orange-400'
                   ]"
                 >
                   {{ formatHistoryValue(item) }}
@@ -369,6 +386,8 @@ const redeemResult = ref<{
   new_concurrency?: number
   group_name?: string
   validity_days?: number
+  balance_card_plan_id?: number
+  balance_card_plan_name?: string
 } | null>(null)
 const errorMessage = ref('')
 
@@ -386,6 +405,10 @@ const isSubscriptionType = (type: string) => {
   return type === 'subscription'
 }
 
+const isBalanceCardType = (type: string) => {
+  return type === 'balance_card'
+}
+
 const isAdminAdjustment = (type: string) => {
   return type === 'admin_balance' || type === 'admin_concurrency'
 }
@@ -401,6 +424,8 @@ const getHistoryItemTitle = (item: RedeemHistoryItem) => {
     return item.value >= 0 ? t('redeem.concurrencyAddedAdmin') : t('redeem.concurrencyReducedAdmin')
   } else if (item.type === 'subscription') {
     return t('redeem.subscriptionAssigned')
+  } else if (item.type === 'balance_card') {
+    return t('redeem.balanceCardAssigned')
   }
   return t('common.unknown')
 }
@@ -409,6 +434,8 @@ const formatHistoryValue = (item: RedeemHistoryItem) => {
   if (isBalanceType(item.type)) {
     const sign = item.value >= 0 ? '+' : ''
     return `${sign}$${item.value.toFixed(2)}`
+  } else if (isBalanceCardType(item.type)) {
+    return item.balance_card_plan_name || t('redeem.balanceCardPlan')
   } else if (isSubscriptionType(item.type)) {
     // 订阅类型显示有效天数和分组名称
     const days = item.validity_days || Math.round(item.value)

@@ -197,6 +197,48 @@ func (_c *UsageLogCreate) SetNillableSubscriptionID(v *int64) *UsageLogCreate {
 	return _c
 }
 
+// SetBalanceCardID sets the "balance_card_id" field.
+func (_c *UsageLogCreate) SetBalanceCardID(v int64) *UsageLogCreate {
+	_c.mutation.SetBalanceCardID(v)
+	return _c
+}
+
+// SetNillableBalanceCardID sets the "balance_card_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableBalanceCardID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetBalanceCardID(*v)
+	}
+	return _c
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (_c *UsageLogCreate) SetBalanceCardCost(v float64) *UsageLogCreate {
+	_c.mutation.SetBalanceCardCost(v)
+	return _c
+}
+
+// SetNillableBalanceCardCost sets the "balance_card_cost" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableBalanceCardCost(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetBalanceCardCost(*v)
+	}
+	return _c
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (_c *UsageLogCreate) SetCashBalanceCost(v float64) *UsageLogCreate {
+	_c.mutation.SetCashBalanceCost(v)
+	return _c
+}
+
+// SetNillableCashBalanceCost sets the "cash_balance_cost" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableCashBalanceCost(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetCashBalanceCost(*v)
+	}
+	return _c
+}
+
 // SetInputTokens sets the "input_tokens" field.
 func (_c *UsageLogCreate) SetInputTokens(v int) *UsageLogCreate {
 	_c.mutation.SetInputTokens(v)
@@ -697,6 +739,14 @@ func (_c *UsageLogCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *UsageLogCreate) defaults() {
+	if _, ok := _c.mutation.BalanceCardCost(); !ok {
+		v := usagelog.DefaultBalanceCardCost
+		_c.mutation.SetBalanceCardCost(v)
+	}
+	if _, ok := _c.mutation.CashBalanceCost(); !ok {
+		v := usagelog.DefaultCashBalanceCost
+		_c.mutation.SetCashBalanceCost(v)
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		v := usagelog.DefaultInputTokens
 		_c.mutation.SetInputTokens(v)
@@ -835,6 +885,12 @@ func (_c *UsageLogCreate) check() error {
 		if err := usagelog.BillingModeValidator(v); err != nil {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.BalanceCardCost(); !ok {
+		return &ValidationError{Name: "balance_card_cost", err: errors.New(`ent: missing required field "UsageLog.balance_card_cost"`)}
+	}
+	if _, ok := _c.mutation.CashBalanceCost(); !ok {
+		return &ValidationError{Name: "cash_balance_cost", err: errors.New(`ent: missing required field "UsageLog.cash_balance_cost"`)}
 	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		return &ValidationError{Name: "input_tokens", err: errors.New(`ent: missing required field "UsageLog.input_tokens"`)}
@@ -1006,6 +1062,18 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingMode(); ok {
 		_spec.SetField(usagelog.FieldBillingMode, field.TypeString, value)
 		_node.BillingMode = &value
+	}
+	if value, ok := _c.mutation.BalanceCardID(); ok {
+		_spec.SetField(usagelog.FieldBalanceCardID, field.TypeInt64, value)
+		_node.BalanceCardID = &value
+	}
+	if value, ok := _c.mutation.BalanceCardCost(); ok {
+		_spec.SetField(usagelog.FieldBalanceCardCost, field.TypeFloat64, value)
+		_node.BalanceCardCost = value
+	}
+	if value, ok := _c.mutation.CashBalanceCost(); ok {
+		_spec.SetField(usagelog.FieldCashBalanceCost, field.TypeFloat64, value)
+		_node.CashBalanceCost = value
 	}
 	if value, ok := _c.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1515,6 +1583,66 @@ func (u *UsageLogUpsert) UpdateSubscriptionID() *UsageLogUpsert {
 // ClearSubscriptionID clears the value of the "subscription_id" field.
 func (u *UsageLogUpsert) ClearSubscriptionID() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldSubscriptionID)
+	return u
+}
+
+// SetBalanceCardID sets the "balance_card_id" field.
+func (u *UsageLogUpsert) SetBalanceCardID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldBalanceCardID, v)
+	return u
+}
+
+// UpdateBalanceCardID sets the "balance_card_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBalanceCardID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBalanceCardID)
+	return u
+}
+
+// AddBalanceCardID adds v to the "balance_card_id" field.
+func (u *UsageLogUpsert) AddBalanceCardID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldBalanceCardID, v)
+	return u
+}
+
+// ClearBalanceCardID clears the value of the "balance_card_id" field.
+func (u *UsageLogUpsert) ClearBalanceCardID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldBalanceCardID)
+	return u
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (u *UsageLogUpsert) SetBalanceCardCost(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldBalanceCardCost, v)
+	return u
+}
+
+// UpdateBalanceCardCost sets the "balance_card_cost" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBalanceCardCost() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBalanceCardCost)
+	return u
+}
+
+// AddBalanceCardCost adds v to the "balance_card_cost" field.
+func (u *UsageLogUpsert) AddBalanceCardCost(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldBalanceCardCost, v)
+	return u
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (u *UsageLogUpsert) SetCashBalanceCost(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldCashBalanceCost, v)
+	return u
+}
+
+// UpdateCashBalanceCost sets the "cash_balance_cost" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateCashBalanceCost() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldCashBalanceCost)
+	return u
+}
+
+// AddCashBalanceCost adds v to the "cash_balance_cost" field.
+func (u *UsageLogUpsert) AddCashBalanceCost(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldCashBalanceCost, v)
 	return u
 }
 
@@ -2411,6 +2539,76 @@ func (u *UsageLogUpsertOne) UpdateSubscriptionID() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearSubscriptionID() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearSubscriptionID()
+	})
+}
+
+// SetBalanceCardID sets the "balance_card_id" field.
+func (u *UsageLogUpsertOne) SetBalanceCardID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBalanceCardID(v)
+	})
+}
+
+// AddBalanceCardID adds v to the "balance_card_id" field.
+func (u *UsageLogUpsertOne) AddBalanceCardID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddBalanceCardID(v)
+	})
+}
+
+// UpdateBalanceCardID sets the "balance_card_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBalanceCardID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBalanceCardID()
+	})
+}
+
+// ClearBalanceCardID clears the value of the "balance_card_id" field.
+func (u *UsageLogUpsertOne) ClearBalanceCardID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBalanceCardID()
+	})
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (u *UsageLogUpsertOne) SetBalanceCardCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBalanceCardCost(v)
+	})
+}
+
+// AddBalanceCardCost adds v to the "balance_card_cost" field.
+func (u *UsageLogUpsertOne) AddBalanceCardCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddBalanceCardCost(v)
+	})
+}
+
+// UpdateBalanceCardCost sets the "balance_card_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBalanceCardCost() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBalanceCardCost()
+	})
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (u *UsageLogUpsertOne) SetCashBalanceCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCashBalanceCost(v)
+	})
+}
+
+// AddCashBalanceCost adds v to the "cash_balance_cost" field.
+func (u *UsageLogUpsertOne) AddCashBalanceCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddCashBalanceCost(v)
+	})
+}
+
+// UpdateCashBalanceCost sets the "cash_balance_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateCashBalanceCost() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCashBalanceCost()
 	})
 }
 
@@ -3567,6 +3765,76 @@ func (u *UsageLogUpsertBulk) UpdateSubscriptionID() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearSubscriptionID() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearSubscriptionID()
+	})
+}
+
+// SetBalanceCardID sets the "balance_card_id" field.
+func (u *UsageLogUpsertBulk) SetBalanceCardID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBalanceCardID(v)
+	})
+}
+
+// AddBalanceCardID adds v to the "balance_card_id" field.
+func (u *UsageLogUpsertBulk) AddBalanceCardID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddBalanceCardID(v)
+	})
+}
+
+// UpdateBalanceCardID sets the "balance_card_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBalanceCardID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBalanceCardID()
+	})
+}
+
+// ClearBalanceCardID clears the value of the "balance_card_id" field.
+func (u *UsageLogUpsertBulk) ClearBalanceCardID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBalanceCardID()
+	})
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (u *UsageLogUpsertBulk) SetBalanceCardCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBalanceCardCost(v)
+	})
+}
+
+// AddBalanceCardCost adds v to the "balance_card_cost" field.
+func (u *UsageLogUpsertBulk) AddBalanceCardCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddBalanceCardCost(v)
+	})
+}
+
+// UpdateBalanceCardCost sets the "balance_card_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBalanceCardCost() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBalanceCardCost()
+	})
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (u *UsageLogUpsertBulk) SetCashBalanceCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCashBalanceCost(v)
+	})
+}
+
+// AddCashBalanceCost adds v to the "cash_balance_cost" field.
+func (u *UsageLogUpsertBulk) AddCashBalanceCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddCashBalanceCost(v)
+	})
+}
+
+// UpdateCashBalanceCost sets the "cash_balance_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateCashBalanceCost() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCashBalanceCost()
 	})
 }
 
