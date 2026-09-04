@@ -3,11 +3,21 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import RedeemView from '../RedeemView.vue'
 
-const { listRedeemCodes, batchUpdateRedeemCodes, getAllGroups, showSuccess, showError, showInfo } =
-  vi.hoisted(() => ({
+const {
+  listRedeemCodes,
+  generateRedeemCodes,
+  batchUpdateRedeemCodes,
+  getAllGroups,
+  listBalanceCardPlans,
+  showSuccess,
+  showError,
+  showInfo
+} = vi.hoisted(() => ({
     listRedeemCodes: vi.fn(),
+    generateRedeemCodes: vi.fn(),
     batchUpdateRedeemCodes: vi.fn(),
     getAllGroups: vi.fn(),
+    listBalanceCardPlans: vi.fn(),
     showSuccess: vi.fn(),
     showError: vi.fn(),
     showInfo: vi.fn()
@@ -17,7 +27,7 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     redeem: {
       list: listRedeemCodes,
-      generate: vi.fn(),
+      generate: generateRedeemCodes,
       delete: vi.fn(),
       batchDelete: vi.fn(),
       batchUpdate: batchUpdateRedeemCodes,
@@ -25,6 +35,9 @@ vi.mock('@/api/admin', () => ({
     },
     groups: {
       getAll: getAllGroups
+    },
+    balanceCards: {
+      listPlans: listBalanceCardPlans
     }
   }
 }))
@@ -99,14 +112,38 @@ const SelectStub = {
   `
 }
 
+const mountView = () =>
+  mount(RedeemView, {
+    attachTo: document.body,
+    global: {
+      stubs: {
+        AppLayout: { template: '<div><slot /></div>' },
+        TablePageLayout: {
+          template:
+            '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+        },
+        DataTable: DataTableStub,
+        Pagination: true,
+        ConfirmDialog: true,
+        Select: SelectStub,
+        GroupBadge: true,
+        GroupOptionItem: true,
+        Icon: true,
+        Teleport: true
+      }
+    }
+  })
+
 describe('admin RedeemView batch update', () => {
   beforeEach(() => {
     localStorage.clear()
     document.body.innerHTML = ''
 
     listRedeemCodes.mockReset()
+    generateRedeemCodes.mockReset()
     batchUpdateRedeemCodes.mockReset()
     getAllGroups.mockReset()
+    listBalanceCardPlans.mockReset()
     showSuccess.mockReset()
     showError.mockReset()
     showInfo.mockReset()
@@ -142,29 +179,31 @@ describe('admin RedeemView batch update', () => {
       pages: 1
     })
     batchUpdateRedeemCodes.mockResolvedValue({ updated: 1, message: 'ok' })
+    generateRedeemCodes.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
+    listBalanceCardPlans.mockResolvedValue([
+      {
+        id: 7,
+        name: 'Monthly 1000',
+        description: '',
+        card_type: 'month',
+        validity_days: 30,
+        daily_quota_usd: 60,
+        weekly_quota_usd: 0,
+        monthly_quota_usd: 1000,
+        fallback_default: true,
+        auto_reset_default: false,
+        max_reset_count: 20,
+        status: 'active',
+        sort_order: 0,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z'
+      }
+    ])
   })
 
   it('submits only checked fields for selected redeem codes', async () => {
-    const wrapper = mount(RedeemView, {
-      attachTo: document.body,
-      global: {
-        stubs: {
-          AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
-          },
-          DataTable: DataTableStub,
-          Pagination: true,
-          ConfirmDialog: true,
-          Select: SelectStub,
-          GroupBadge: true,
-          GroupOptionItem: true,
-          Icon: true,
-          Teleport: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await wrapper.findAll('[data-test="select-code"]')[0].setValue(true)
@@ -183,5 +222,32 @@ describe('admin RedeemView batch update', () => {
       notes: 'maintenance'
     })
     expect(showSuccess).toHaveBeenCalledWith('admin.redeem.batchUpdateSuccess')
+  })
+
+  it('generates a balance card code for the selected plan', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const openButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'admin.redeem.generateCodes')
+    expect(openButton).toBeTruthy()
+    await openButton!.trigger('click')
+
+    await wrapper.get('[data-test="generate-code-type"]').setValue('balance_card')
+    await flushPromises()
+    await wrapper.get('[data-test="balance-card-plan-select"]').setValue('7')
+    await wrapper.get('[data-test="generate-redeem-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(generateRedeemCodes).toHaveBeenCalledWith(
+      1,
+      'balance_card',
+      10,
+      undefined,
+      undefined,
+      undefined,
+      7
+    )
   })
 })

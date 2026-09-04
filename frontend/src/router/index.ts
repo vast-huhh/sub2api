@@ -301,6 +301,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/balance-cards',
+    name: 'BalanceCards',
+    component: () => import('@/views/user/BalanceCardsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'My Balance Cards',
+      titleKey: 'balanceCards.title',
+      descriptionKey: 'balanceCards.description'
+    }
+  },
+  {
     path: '/purchase',
     name: 'PurchaseSubscription',
     component: () => import('@/views/user/PaymentView.vue'),
@@ -510,6 +522,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Subscription Management',
       titleKey: 'admin.subscriptions.title',
       descriptionKey: 'admin.subscriptions.description'
+    }
+  },
+  {
+    path: '/admin/balance-cards',
+    name: 'AdminBalanceCards',
+    component: () => import('@/views/admin/BalanceCardsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Balance Card Management',
+      titleKey: 'balanceCards.admin.title',
+      descriptionKey: 'balanceCards.admin.description'
     }
   },
   {
@@ -940,8 +964,10 @@ router.beforeEach(async (to, _from, next) => {
     const restrictedPaths = [
       '/admin/groups',
       '/admin/subscriptions',
+      '/admin/balance-cards',
       '/admin/redeem',
       '/subscriptions',
+      '/balance-cards',
       '/redeem'
     ]
 

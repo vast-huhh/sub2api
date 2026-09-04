@@ -487,6 +487,94 @@ export interface PaginatedResponse<T> {
   pages: number
 }
 
+// ==================== Balance Card Types ====================
+
+export type BalanceCardType = 'day' | 'week' | 'month' | 'custom'
+export type BalanceCardStatus = 'pending' | 'active' | 'expired' | 'suspended' | 'revoked'
+
+export interface BalanceCardPlan {
+  id: number
+  name: string
+  description: string
+  card_type: BalanceCardType
+  validity_days: number
+  daily_quota_usd: number
+  weekly_quota_usd: number
+  monthly_quota_usd: number
+  fallback_default: boolean
+  auto_reset_default: boolean
+  max_reset_count: number
+  status: 'active' | 'inactive'
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface UserBalanceCard {
+  id: number
+  user_id: number
+  user_email?: string
+  plan_id: number | null
+  plan_name: string
+  card_type: BalanceCardType
+  validity_days: number
+  daily_quota_usd: number
+  weekly_quota_usd: number
+  monthly_quota_usd: number
+  max_reset_count: number
+  starts_at: string
+  expires_at: string
+  status: BalanceCardStatus
+  daily_window_start: string | null
+  daily_usage_usd: number
+  weekly_window_start: string | null
+  weekly_usage_usd: number
+  monthly_usage_usd: number
+  fallback_enabled: boolean
+  auto_reset_enabled: boolean
+  reset_count: number
+  assigned_by: number | null
+  assigned_at: string
+  activated_at: string | null
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BalanceCardLedger {
+  id: number
+  user_balance_card_id: number
+  user_id: number
+  event_type: string
+  amount_usd: number
+  daily_usage_before: number
+  daily_usage_after: number
+  expires_at_before: string | null
+  expires_at_after: string | null
+  request_id?: string
+  api_key_id?: number
+  operation_key?: string
+  actor_id?: number
+  notes: string
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface BalanceCardPlanInput {
+  name: string
+  description: string
+  card_type: BalanceCardType
+  validity_days: number
+  daily_quota_usd: number
+  weekly_quota_usd: number
+  monthly_quota_usd: number
+  fallback_default: boolean
+  auto_reset_default: boolean
+  max_reset_count: number
+  status: 'active' | 'inactive'
+  sort_order: number
+}
+
 // ==================== UI State Types ====================
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
@@ -1667,7 +1755,12 @@ export interface CodexSessionImportResult {
 
 // ==================== Usage & Redeem Types ====================
 
-export type RedeemCodeType = 'balance' | 'concurrency' | 'subscription' | 'invitation'
+export type RedeemCodeType =
+  | 'balance'
+  | 'concurrency'
+  | 'subscription'
+  | 'invitation'
+  | 'balance_card'
 export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2' | 'cyber' | 'live'
 export type ImageSizeSource = 'output' | 'input' | 'default' | 'legacy'
 export type ImageSizeBreakdown = Record<string, number>
@@ -1686,6 +1779,9 @@ export interface UsageLog {
 
   group_id: number | null
   subscription_id: number | null
+  balance_card_id?: number | null
+  balance_card_cost?: number
+  cash_balance_cost?: number
 
   input_tokens: number
   output_tokens: number
@@ -1809,6 +1905,8 @@ export interface RedeemCode {
   notes?: string
   group_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
+  balance_card_plan_id?: number | null // 余额卡类型专用
+  balance_card_plan_name?: string
   user?: User
   group?: Group // 关联的分组
 }
@@ -1819,6 +1917,7 @@ export interface GenerateRedeemCodesRequest {
   value: number
   group_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
+  balance_card_plan_id?: number | null // 余额卡类型专用
   expires_at?: string | null
   expires_in_days?: number
 }
