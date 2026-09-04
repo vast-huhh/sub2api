@@ -74,6 +74,15 @@ func (UsageLog) Fields() []ent.Field {
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
+		field.Int64("balance_card_id").
+			Optional().
+			Nillable(),
+		field.Float("balance_card_cost").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.Float("cash_balance_cost").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 
 		// Token 计数字段
 		field.Int("input_tokens").

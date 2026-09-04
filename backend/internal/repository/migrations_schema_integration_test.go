@@ -172,6 +172,28 @@ WHERE ns.nspname = 'public'
 	// user_subscriptions: deleted_at for soft delete support (migration 012)
 	requireColumn(t, tx, "user_subscriptions", "deleted_at", "timestamp with time zone", 0, true)
 
+	// Independent balance-card wallet (migration 231).
+	requireColumn(t, tx, "balance_card_plans", "daily_quota_usd", "numeric", 0, false)
+	requireColumn(t, tx, "balance_card_plans", "weekly_quota_usd", "numeric", 0, false)
+	requireColumn(t, tx, "balance_card_plans", "monthly_quota_usd", "numeric", 0, false)
+	requireColumn(t, tx, "user_balance_cards", "fallback_enabled", "boolean", 0, false)
+	requireColumn(t, tx, "user_balance_cards", "auto_reset_enabled", "boolean", 0, false)
+	requireColumn(t, tx, "user_balance_cards", "weekly_window_start", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "user_balance_cards", "weekly_usage_usd", "numeric", 0, false)
+	requireColumn(t, tx, "user_balance_cards", "monthly_usage_usd", "numeric", 0, false)
+	requireColumn(t, tx, "user_balance_cards", "deleted_at", "timestamp with time zone", 0, true)
+	requireColumn(t, tx, "user_balance_cards", "deleted_by", "bigint", 0, true)
+	requireColumn(t, tx, "balance_card_ledgers", "operation_key", "character varying", 128, true)
+	requireColumn(t, tx, "usage_logs", "balance_card_id", "bigint", 0, true)
+	requireColumn(t, tx, "usage_logs", "balance_card_cost", "numeric", 0, false)
+	requireColumn(t, tx, "redeem_codes", "balance_card_plan_id", "bigint", 0, true)
+	requireColumn(t, tx, "redeem_codes", "balance_card_plan_name", "character varying", 100, false)
+	requireColumn(t, tx, "usage_logs", "cash_balance_cost", "numeric", 0, false)
+	requireIndex(t, tx, "user_balance_cards", "user_balance_cards_one_active_uq")
+	requireIndex(t, tx, "user_balance_cards", "idx_user_balance_cards_visible_user_status")
+	requireIndex(t, tx, "balance_card_ledgers", "balance_card_ledgers_operation_uq")
+	requireIndex(t, tx, "redeem_codes", "idx_redeem_codes_balance_card_plan_id")
+
 	// orphan_allowed_groups_audit table should exist (migration 013)
 	var orphanAuditRegclass sql.NullString
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.orphan_allowed_groups_audit')").Scan(&orphanAuditRegclass))

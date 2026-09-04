@@ -91,6 +91,9 @@ func RegisterAdminRoutes(
 		// 订阅管理
 		registerSubscriptionRoutes(admin, h)
 
+		// 余额卡套餐与分配管理
+		registerBalanceCardRoutes(admin, h)
+
 		// 使用记录管理
 		registerUsageRoutes(admin, h)
 
@@ -687,6 +690,27 @@ func registerSubscriptionRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 	// 用户下的订阅列表
 	admin.GET("/users/:id/subscriptions", h.Admin.Subscription.ListByUser)
+}
+
+func registerBalanceCardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	plans := admin.Group("/balance-card-plans")
+	{
+		plans.GET("", h.Admin.BalanceCard.ListPlans)
+		plans.POST("", h.Admin.BalanceCard.CreatePlan)
+		plans.PUT("/:id", h.Admin.BalanceCard.UpdatePlan)
+	}
+
+	cards := admin.Group("/balance-cards")
+	{
+		cards.GET("", h.Admin.BalanceCard.ListCards)
+		cards.POST("/assign", h.Admin.BalanceCard.Assign)
+		cards.POST("/bulk-assign", h.Admin.BalanceCard.BulkAssign)
+		cards.POST("/:id/extend", h.Admin.BalanceCard.Extend)
+		cards.POST("/:id/reset-daily", h.Admin.BalanceCard.ResetDaily)
+		cards.POST("/:id/revoke", h.Admin.BalanceCard.Revoke)
+		cards.DELETE("/:id", h.Admin.BalanceCard.Delete)
+		cards.GET("/:id/ledger", h.Admin.BalanceCard.Ledger)
+	}
 }
 
 func registerUsageRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

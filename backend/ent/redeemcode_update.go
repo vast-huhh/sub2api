@@ -214,6 +214,47 @@ func (_u *RedeemCodeUpdate) AddValidityDays(v int) *RedeemCodeUpdate {
 	return _u
 }
 
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (_u *RedeemCodeUpdate) SetBalanceCardPlanID(v int64) *RedeemCodeUpdate {
+	_u.mutation.ResetBalanceCardPlanID()
+	_u.mutation.SetBalanceCardPlanID(v)
+	return _u
+}
+
+// SetNillableBalanceCardPlanID sets the "balance_card_plan_id" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableBalanceCardPlanID(v *int64) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetBalanceCardPlanID(*v)
+	}
+	return _u
+}
+
+// AddBalanceCardPlanID adds value to the "balance_card_plan_id" field.
+func (_u *RedeemCodeUpdate) AddBalanceCardPlanID(v int64) *RedeemCodeUpdate {
+	_u.mutation.AddBalanceCardPlanID(v)
+	return _u
+}
+
+// ClearBalanceCardPlanID clears the value of the "balance_card_plan_id" field.
+func (_u *RedeemCodeUpdate) ClearBalanceCardPlanID() *RedeemCodeUpdate {
+	_u.mutation.ClearBalanceCardPlanID()
+	return _u
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (_u *RedeemCodeUpdate) SetBalanceCardPlanName(v string) *RedeemCodeUpdate {
+	_u.mutation.SetBalanceCardPlanName(v)
+	return _u
+}
+
+// SetNillableBalanceCardPlanName sets the "balance_card_plan_name" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableBalanceCardPlanName(v *string) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetBalanceCardPlanName(*v)
+	}
+	return _u
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (_u *RedeemCodeUpdate) SetUserID(id int64) *RedeemCodeUpdate {
 	_u.mutation.SetUserID(id)
@@ -299,6 +340,11 @@ func (_u *RedeemCodeUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BalanceCardPlanName(); ok {
+		if err := redeemcode.BalanceCardPlanNameValidator(v); err != nil {
+			return &ValidationError{Name: "balance_card_plan_name", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.balance_card_plan_name": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -352,6 +398,18 @@ func (_u *RedeemCodeUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if value, ok := _u.mutation.AddedValidityDays(); ok {
 		_spec.AddField(redeemcode.FieldValidityDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.BalanceCardPlanID(); ok {
+		_spec.SetField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceCardPlanID(); ok {
+		_spec.AddField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalanceCardPlanIDCleared() {
+		_spec.ClearField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalanceCardPlanName(); ok {
+		_spec.SetField(redeemcode.FieldBalanceCardPlanName, field.TypeString, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -615,6 +673,47 @@ func (_u *RedeemCodeUpdateOne) AddValidityDays(v int) *RedeemCodeUpdateOne {
 	return _u
 }
 
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (_u *RedeemCodeUpdateOne) SetBalanceCardPlanID(v int64) *RedeemCodeUpdateOne {
+	_u.mutation.ResetBalanceCardPlanID()
+	_u.mutation.SetBalanceCardPlanID(v)
+	return _u
+}
+
+// SetNillableBalanceCardPlanID sets the "balance_card_plan_id" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableBalanceCardPlanID(v *int64) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetBalanceCardPlanID(*v)
+	}
+	return _u
+}
+
+// AddBalanceCardPlanID adds value to the "balance_card_plan_id" field.
+func (_u *RedeemCodeUpdateOne) AddBalanceCardPlanID(v int64) *RedeemCodeUpdateOne {
+	_u.mutation.AddBalanceCardPlanID(v)
+	return _u
+}
+
+// ClearBalanceCardPlanID clears the value of the "balance_card_plan_id" field.
+func (_u *RedeemCodeUpdateOne) ClearBalanceCardPlanID() *RedeemCodeUpdateOne {
+	_u.mutation.ClearBalanceCardPlanID()
+	return _u
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (_u *RedeemCodeUpdateOne) SetBalanceCardPlanName(v string) *RedeemCodeUpdateOne {
+	_u.mutation.SetBalanceCardPlanName(v)
+	return _u
+}
+
+// SetNillableBalanceCardPlanName sets the "balance_card_plan_name" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableBalanceCardPlanName(v *string) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetBalanceCardPlanName(*v)
+	}
+	return _u
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (_u *RedeemCodeUpdateOne) SetUserID(id int64) *RedeemCodeUpdateOne {
 	_u.mutation.SetUserID(id)
@@ -713,6 +812,11 @@ func (_u *RedeemCodeUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BalanceCardPlanName(); ok {
+		if err := redeemcode.BalanceCardPlanNameValidator(v); err != nil {
+			return &ValidationError{Name: "balance_card_plan_name", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.balance_card_plan_name": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -783,6 +887,18 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 	}
 	if value, ok := _u.mutation.AddedValidityDays(); ok {
 		_spec.AddField(redeemcode.FieldValidityDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.BalanceCardPlanID(); ok {
+		_spec.SetField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceCardPlanID(); ok {
+		_spec.AddField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalanceCardPlanIDCleared() {
+		_spec.ClearField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalanceCardPlanName(); ok {
+		_spec.SetField(redeemcode.FieldBalanceCardPlanName, field.TypeString, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

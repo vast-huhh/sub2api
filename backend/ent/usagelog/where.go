@@ -130,6 +130,21 @@ func SubscriptionID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldSubscriptionID, v))
 }
 
+// BalanceCardID applies equality check predicate on the "balance_card_id" field. It's identical to BalanceCardIDEQ.
+func BalanceCardID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBalanceCardID, v))
+}
+
+// BalanceCardCost applies equality check predicate on the "balance_card_cost" field. It's identical to BalanceCardCostEQ.
+func BalanceCardCost(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBalanceCardCost, v))
+}
+
+// CashBalanceCost applies equality check predicate on the "cash_balance_cost" field. It's identical to CashBalanceCostEQ.
+func CashBalanceCost(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCashBalanceCost, v))
+}
+
 // InputTokens applies equality check predicate on the "input_tokens" field. It's identical to InputTokensEQ.
 func InputTokens(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldInputTokens, v))
@@ -1053,6 +1068,136 @@ func SubscriptionIDIsNil() predicate.UsageLog {
 // SubscriptionIDNotNil applies the NotNil predicate on the "subscription_id" field.
 func SubscriptionIDNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldSubscriptionID))
+}
+
+// BalanceCardIDEQ applies the EQ predicate on the "balance_card_id" field.
+func BalanceCardIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBalanceCardID, v))
+}
+
+// BalanceCardIDNEQ applies the NEQ predicate on the "balance_card_id" field.
+func BalanceCardIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldBalanceCardID, v))
+}
+
+// BalanceCardIDIn applies the In predicate on the "balance_card_id" field.
+func BalanceCardIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldBalanceCardID, vs...))
+}
+
+// BalanceCardIDNotIn applies the NotIn predicate on the "balance_card_id" field.
+func BalanceCardIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldBalanceCardID, vs...))
+}
+
+// BalanceCardIDGT applies the GT predicate on the "balance_card_id" field.
+func BalanceCardIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldBalanceCardID, v))
+}
+
+// BalanceCardIDGTE applies the GTE predicate on the "balance_card_id" field.
+func BalanceCardIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldBalanceCardID, v))
+}
+
+// BalanceCardIDLT applies the LT predicate on the "balance_card_id" field.
+func BalanceCardIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldBalanceCardID, v))
+}
+
+// BalanceCardIDLTE applies the LTE predicate on the "balance_card_id" field.
+func BalanceCardIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldBalanceCardID, v))
+}
+
+// BalanceCardIDIsNil applies the IsNil predicate on the "balance_card_id" field.
+func BalanceCardIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldBalanceCardID))
+}
+
+// BalanceCardIDNotNil applies the NotNil predicate on the "balance_card_id" field.
+func BalanceCardIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldBalanceCardID))
+}
+
+// BalanceCardCostEQ applies the EQ predicate on the "balance_card_cost" field.
+func BalanceCardCostEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBalanceCardCost, v))
+}
+
+// BalanceCardCostNEQ applies the NEQ predicate on the "balance_card_cost" field.
+func BalanceCardCostNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldBalanceCardCost, v))
+}
+
+// BalanceCardCostIn applies the In predicate on the "balance_card_cost" field.
+func BalanceCardCostIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldBalanceCardCost, vs...))
+}
+
+// BalanceCardCostNotIn applies the NotIn predicate on the "balance_card_cost" field.
+func BalanceCardCostNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldBalanceCardCost, vs...))
+}
+
+// BalanceCardCostGT applies the GT predicate on the "balance_card_cost" field.
+func BalanceCardCostGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldBalanceCardCost, v))
+}
+
+// BalanceCardCostGTE applies the GTE predicate on the "balance_card_cost" field.
+func BalanceCardCostGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldBalanceCardCost, v))
+}
+
+// BalanceCardCostLT applies the LT predicate on the "balance_card_cost" field.
+func BalanceCardCostLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldBalanceCardCost, v))
+}
+
+// BalanceCardCostLTE applies the LTE predicate on the "balance_card_cost" field.
+func BalanceCardCostLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldBalanceCardCost, v))
+}
+
+// CashBalanceCostEQ applies the EQ predicate on the "cash_balance_cost" field.
+func CashBalanceCostEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCashBalanceCost, v))
+}
+
+// CashBalanceCostNEQ applies the NEQ predicate on the "cash_balance_cost" field.
+func CashBalanceCostNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldCashBalanceCost, v))
+}
+
+// CashBalanceCostIn applies the In predicate on the "cash_balance_cost" field.
+func CashBalanceCostIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldCashBalanceCost, vs...))
+}
+
+// CashBalanceCostNotIn applies the NotIn predicate on the "cash_balance_cost" field.
+func CashBalanceCostNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldCashBalanceCost, vs...))
+}
+
+// CashBalanceCostGT applies the GT predicate on the "cash_balance_cost" field.
+func CashBalanceCostGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldCashBalanceCost, v))
+}
+
+// CashBalanceCostGTE applies the GTE predicate on the "cash_balance_cost" field.
+func CashBalanceCostGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldCashBalanceCost, v))
+}
+
+// CashBalanceCostLT applies the LT predicate on the "cash_balance_cost" field.
+func CashBalanceCostLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldCashBalanceCost, v))
+}
+
+// CashBalanceCostLTE applies the LTE predicate on the "cash_balance_cost" field.
+func CashBalanceCostLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldCashBalanceCost, v))
 }
 
 // InputTokensEQ applies the EQ predicate on the "input_tokens" field.

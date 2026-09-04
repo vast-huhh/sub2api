@@ -81,6 +81,7 @@ var ProviderSet = wire.NewSet(
 	NewAnnouncementReadRepository,
 	NewUsageLogRepository,
 	NewUsageBillingRepository,
+	NewBalanceCardRepository,
 	NewBatchImageRepository,
 	NewIdempotencyRepository,
 	NewUsageCleanupRepository,
@@ -109,6 +110,7 @@ var ProviderSet = wire.NewSet(
 	// Cache implementations
 	NewGatewayCache,
 	NewBillingCache,
+	NewBalanceCardCache,
 	NewAPIKeyCache,
 	NewTempUnschedCache,
 	NewTimeoutCounterCache,

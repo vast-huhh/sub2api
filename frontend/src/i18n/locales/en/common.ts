@@ -196,6 +196,8 @@ export default {
     logout: 'Logout',
     github: 'GitHub',
     mySubscriptions: 'My Subscriptions',
+    myBalanceCards: 'My Balance Cards',
+    balanceCards: 'Balance Cards',
     buySubscription: 'Recharge / Subscription',
     docs: 'Docs',
     myOrders: 'My Orders',
