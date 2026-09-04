@@ -135,6 +135,15 @@ func RegisterUserRoutes(
 			subscriptions.GET("/summary", h.Subscription.GetSummary)
 		}
 
+		// 余额卡（日卡/周卡/月卡）
+		balanceCards := authenticated.Group("/balance-cards")
+		{
+			balanceCards.GET("", h.BalanceCard.List)
+			balanceCards.PATCH("/:id/preferences", h.BalanceCard.UpdatePreferences)
+			balanceCards.POST("/:id/reset-daily", h.BalanceCard.ResetDaily)
+			balanceCards.GET("/:id/ledger", h.BalanceCard.Ledger)
+		}
+
 		// 渠道监控（用户只读）
 		monitors := authenticated.Group("/channel-monitors")
 		{

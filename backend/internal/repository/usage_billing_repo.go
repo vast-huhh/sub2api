@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -179,12 +182,9 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	if cmd.BalanceCost > 0 {
-		newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
-		if err != nil {
+		if err := deductUsageBillingWallet(ctx, tx, cmd, result); err != nil {
 			return err
 		}
-		result.NewBalance = &newBalance
-		result.BalanceOverdrafted = !sufficient
 	}
 
 	if cmd.APIKeyQuotaCost > 0 {
@@ -209,6 +209,181 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		result.QuotaState = quotaState
 	}
 
+	return nil
+}
+
+func deductUsageBillingWallet(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, result *service.UsageBillingApplyResult) error {
+	amount := cmd.BalanceCost
+	if amount <= 0 {
+		return nil
+	}
+	now := timezone.Now()
+	if err := normalizeUserBalanceCardsTx(ctx, tx, cmd.UserID, now); err != nil {
+		return err
+	}
+
+	var (
+		cardID            int64
+		cardType          string
+		validityDays      int
+		dailyQuota        float64
+		dailyUsage        float64
+		dailyWindowStart  *time.Time
+		weeklyQuota       float64
+		weeklyUsage       float64
+		weeklyWindowStart *time.Time
+		monthlyQuota      float64
+		monthlyUsage      float64
+		fallbackEnabled   bool
+		autoResetEnabled  bool
+		resetCount        int
+		maxResetCount     int
+		expiresAt         time.Time
+	)
+	err := tx.QueryRowContext(ctx, `SELECT id, card_type, validity_days,
+		daily_quota_usd::double precision, daily_usage_usd::double precision,
+		daily_window_start, weekly_quota_usd::double precision,
+		weekly_usage_usd::double precision, weekly_window_start,
+		monthly_quota_usd::double precision, monthly_usage_usd::double precision,
+		fallback_enabled, auto_reset_enabled, reset_count,
+		max_reset_count, expires_at
+		FROM user_balance_cards
+		WHERE user_id=$1 AND status='active' AND starts_at <= $2 AND expires_at > $2
+		LIMIT 1 FOR UPDATE`, cmd.UserID, now).Scan(
+		&cardID, &cardType, &validityDays, &dailyQuota, &dailyUsage, &dailyWindowStart,
+		&weeklyQuota, &weeklyUsage, &weeklyWindowStart, &monthlyQuota, &monthlyUsage,
+		&fallbackEnabled, &autoResetEnabled, &resetCount, &maxResetCount, &expiresAt)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	cardCost := 0.0
+	cashCost := amount
+	if err == nil {
+		today := timezone.StartOfDay(now)
+		if dailyWindowStart == nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards
+				SET daily_window_start=$2, updated_at=$3 WHERE id=$1`, cardID, today, now); err != nil {
+				return err
+			}
+			dailyWindowStart = &today
+		}
+		if weeklyQuota > 0 && weeklyWindowStart == nil {
+			weekStart := now
+			if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards
+				SET weekly_window_start=$2, updated_at=$3 WHERE id=$1`, cardID, weekStart, now); err != nil {
+				return err
+			}
+			weeklyWindowStart = &weekStart
+		}
+		quotaState := &service.BalanceCardWalletSnapshot{
+			CardType: cardType, ValidityDays: validityDays, ExpiresAt: expiresAt,
+			DailyQuotaUSD: dailyQuota,
+			DailyUsageUSD: dailyUsage, DailyWindowStart: dailyWindowStart,
+			WeeklyQuotaUSD: weeklyQuota, WeeklyUsageUSD: weeklyUsage,
+			WeeklyWindowStart: weeklyWindowStart, MonthlyQuotaUSD: monthlyQuota,
+			MonthlyUsageUSD: monthlyUsage, ResetCount: resetCount,
+			MaxResetCount: maxResetCount,
+		}
+		remaining := quotaState.AvailableRemaining(now)
+		resetWindow := quotaState.AdvanceResetWindow(now)
+		if autoResetEnabled && resetWindow != "" {
+			resetDuration := service.BalanceCardResetDuration(resetWindow, weeklyWindowStart, now)
+			oldExpiresAt := expiresAt
+			expiresAt = expiresAt.Add(-resetDuration)
+			resetMetadata := map[string]any{"window": resetWindow}
+			if resetWindow == service.BalanceCardResetWindowWeekly {
+				weekStart := now
+				if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
+					daily_usage_usd=0, daily_window_start=$2,
+					weekly_usage_usd=0, weekly_window_start=$3,
+					expires_at=$4, reset_count=reset_count+1,
+					updated_at=$5 WHERE id=$1`, cardID, today, weekStart, expiresAt, now); err != nil {
+					return err
+				}
+				resetMetadata["weekly_usage_before"] = weeklyUsage
+				resetMetadata["weekly_usage_after"] = 0
+				weeklyUsage = 0
+				weeklyWindowStart = &weekStart
+				quotaState.WeeklyUsageUSD = 0
+				quotaState.WeeklyWindowStart = weeklyWindowStart
+			} else {
+				if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
+					daily_usage_usd=0, daily_window_start=$2,
+					expires_at=$3, reset_count=reset_count+1,
+					updated_at=$4 WHERE id=$1`, cardID, today, expiresAt, now); err != nil {
+					return err
+				}
+			}
+			if err := shiftPendingBalanceCardsTx(ctx, tx, cmd.UserID, cardID, oldExpiresAt, -resetDuration, now); err != nil {
+				return err
+			}
+			if err := insertBalanceCardLedgerTx(ctx, tx, cardID, cmd.UserID, "auto_reset", 0,
+				dailyUsage, 0, &oldExpiresAt, &expiresAt, nil, nil, nil, nil, "", resetMetadata); err != nil {
+				return err
+			}
+			dailyUsage = 0
+			quotaState.DailyUsageUSD = 0
+			quotaState.DailyWindowStart = &today
+			quotaState.ExpiresAt = expiresAt
+			quotaState.ResetCount++
+			remaining = quotaState.AvailableRemaining(now)
+		}
+
+		if fallbackEnabled {
+			cardCost = math.Min(amount, remaining)
+			cashCost = amount - cardCost
+		} else {
+			// Cost is known only after the upstream response. Preserve the user's
+			// no-cash-fallback choice by charging an already in-flight overage to
+			// the card, then rejecting subsequent requests at preflight.
+			cardCost = amount
+			cashCost = 0
+		}
+		cardCost = service.QuantizeUsageBillingAmount(cardCost)
+		cashCost = service.QuantizeUsageBillingAmount(cashCost)
+		if cardCost > 0 {
+			newUsage := service.QuantizeUsageBillingAmount(dailyUsage + cardCost)
+			newWeeklyUsage := service.QuantizeUsageBillingAmount(weeklyUsage + cardCost)
+			newMonthlyUsage := service.QuantizeUsageBillingAmount(monthlyUsage + cardCost)
+			if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
+				daily_usage_usd=$2, weekly_usage_usd=$3, monthly_usage_usd=$4,
+				updated_at=$5 WHERE id=$1`, cardID, newUsage, newWeeklyUsage, newMonthlyUsage, now); err != nil {
+				return err
+			}
+			requestID := cmd.RequestID
+			apiKeyID := cmd.APIKeyID
+			if err := insertBalanceCardLedgerTx(ctx, tx, cardID, cmd.UserID, "usage", cardCost,
+				dailyUsage, newUsage, &expiresAt, &expiresAt, &requestID, &apiKeyID, nil, nil, "", map[string]any{
+					"weekly_usage_before": weeklyUsage, "weekly_usage_after": newWeeklyUsage,
+					"monthly_usage_before": monthlyUsage, "monthly_usage_after": newMonthlyUsage,
+				}); err != nil {
+				return err
+			}
+			quotaState.DailyUsageUSD = newUsage
+			quotaState.WeeklyUsageUSD = newWeeklyUsage
+			quotaState.MonthlyUsageUSD = newMonthlyUsage
+			remainingAfter := quotaState.AvailableRemaining(now)
+			result.BalanceCardID = &cardID
+			result.BalanceCardCost = cardCost
+			// An absent remaining value denotes an unlimited card. Never let +Inf
+			// escape into JSON, logs, or downstream metrics.
+			if !math.IsInf(remainingAfter, 1) {
+				result.NewBalanceCardRemaining = &remainingAfter
+			}
+		}
+	}
+
+	result.CashBalanceCost = cashCost
+	if cashCost <= 0 {
+		return nil
+	}
+	newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cashCost)
+	if err != nil {
+		return err
+	}
+	result.NewBalance = &newBalance
+	result.BalanceOverdrafted = !sufficient
 	return nil
 }
 
