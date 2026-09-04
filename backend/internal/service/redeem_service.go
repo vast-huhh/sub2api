@@ -148,6 +148,11 @@ type RedeemService struct {
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	affiliateService     *AffiliateService
+	balanceCardService   *BalanceCardService
+}
+
+func (s *RedeemService) SetBalanceCardService(balanceCardService *BalanceCardService) {
+	s.balanceCardService = balanceCardService
 }
 
 // NewRedeemService 创建兑换码服务实例
@@ -202,6 +207,9 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 	if req.Count <= 0 {
 		return nil, errors.New("count must be greater than 0")
 	}
+	if req.Type == RedeemTypeBalanceCard {
+		return nil, errors.New("balance card codes must be generated with a plan")
+	}
 
 	// 邀请码类型不需要数值，其他类型需要非零值（支持负数用于退款）
 	if req.Type != RedeemTypeInvitation && req.Value == 0 {
@@ -246,6 +254,42 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 	return codes, nil
 }
 
+func (s *RedeemService) GenerateBalanceCardCodes(ctx context.Context, count int, planID int64, expiresAt *time.Time) ([]RedeemCode, error) {
+	if count <= 0 || count > 100 || planID <= 0 || s.balanceCardService == nil {
+		return nil, ErrBalanceCardInvalidInput
+	}
+	if expiresAt != nil && !expiresAt.After(time.Now()) {
+		return nil, ErrRedeemCodeExpired
+	}
+	plan, err := s.balanceCardService.GetPlan(ctx, planID)
+	if err != nil {
+		return nil, err
+	}
+	if plan.Status != StatusActive {
+		return nil, ErrBalanceCardPlanInactive
+	}
+
+	codes := make([]RedeemCode, 0, count)
+	for i := 0; i < count; i++ {
+		codeValue, err := GenerateRedeemCode()
+		if err != nil {
+			return nil, err
+		}
+		codes = append(codes, RedeemCode{
+			Code:                codeValue,
+			Type:                RedeemTypeBalanceCard,
+			Status:              StatusUnused,
+			ExpiresAt:           expiresAt,
+			BalanceCardPlanID:   &planID,
+			BalanceCardPlanName: plan.Name,
+		})
+	}
+	if err := s.redeemRepo.CreateBatch(ctx, codes); err != nil {
+		return nil, err
+	}
+	return codes, nil
+}
+
 // CreateCode creates a redeem code with caller-provided code value.
 // It is primarily used by admin integrations that require an external order ID
 // to be mapped to a deterministic redeem code.
@@ -260,8 +304,21 @@ func (s *RedeemService) CreateCode(ctx context.Context, code *RedeemCode) error 
 	if code.Type == "" {
 		code.Type = RedeemTypeBalance
 	}
-	if code.Type != RedeemTypeInvitation && code.Value == 0 {
+	if code.Type != RedeemTypeInvitation && code.Type != RedeemTypeBalanceCard && code.Value == 0 {
 		return errors.New("value must not be zero")
+	}
+	if code.Type == RedeemTypeBalanceCard {
+		if code.BalanceCardPlanID == nil || *code.BalanceCardPlanID <= 0 || s.balanceCardService == nil {
+			return ErrBalanceCardInvalidInput
+		}
+		plan, err := s.balanceCardService.GetPlan(ctx, *code.BalanceCardPlanID)
+		if err != nil {
+			return err
+		}
+		if plan.Status != StatusActive {
+			return ErrBalanceCardPlanInactive
+		}
+		code.BalanceCardPlanName = plan.Name
 	}
 	if code.Status == "" {
 		code.Status = StatusUnused
@@ -457,6 +514,10 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 		if redeemCode.GroupID == nil {
 			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid subscription redeem code: missing group_id")
 		}
+	case RedeemTypeBalanceCard:
+		if redeemCode.BalanceCardPlanID == nil {
+			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid balance card redeem code: missing balance_card_plan_id")
+		}
 	default:
 		return nil, unsupportedRedeemTypeError(redeemCode.Type)
 	}
@@ -465,6 +526,21 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 	_, err = s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
+	}
+
+	if redeemCode.Type == RedeemTypeBalanceCard {
+		if s.balanceCardService == nil {
+			return nil, errors.New("balance card service is not configured")
+		}
+		if _, err := s.balanceCardService.Redeem(ctx, redeemCode.ID, userID, *redeemCode.BalanceCardPlanID, redeemCode.Code); err != nil {
+			return nil, fmt.Errorf("assign balance card: %w", err)
+		}
+		s.invalidateRedeemCaches(ctx, userID, redeemCode)
+		redeemCode, err = s.redeemRepo.GetByID(ctx, redeemCode.ID)
+		if err != nil {
+			return nil, fmt.Errorf("get updated redeem code: %w", err)
+		}
+		return redeemCode, nil
 	}
 
 	// 使用数据库事务保证兑换码标记与权益发放的原子性

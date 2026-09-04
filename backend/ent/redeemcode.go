@@ -41,6 +41,10 @@ type RedeemCode struct {
 	GroupID *int64 `json:"group_id,omitempty"`
 	// ValidityDays holds the value of the "validity_days" field.
 	ValidityDays int `json:"validity_days,omitempty"`
+	// BalanceCardPlanID holds the value of the "balance_card_plan_id" field.
+	BalanceCardPlanID *int64 `json:"balance_card_plan_id,omitempty"`
+	// BalanceCardPlanName holds the value of the "balance_card_plan_name" field.
+	BalanceCardPlanName string `json:"balance_card_plan_name,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the RedeemCodeQuery when eager-loading is set.
 	Edges        RedeemCodeEdges `json:"edges"`
@@ -87,9 +91,9 @@ func (*RedeemCode) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case redeemcode.FieldValue:
 			values[i] = new(sql.NullFloat64)
-		case redeemcode.FieldID, redeemcode.FieldUsedBy, redeemcode.FieldGroupID, redeemcode.FieldValidityDays:
+		case redeemcode.FieldID, redeemcode.FieldUsedBy, redeemcode.FieldGroupID, redeemcode.FieldValidityDays, redeemcode.FieldBalanceCardPlanID:
 			values[i] = new(sql.NullInt64)
-		case redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldStatus, redeemcode.FieldNotes:
+		case redeemcode.FieldCode, redeemcode.FieldType, redeemcode.FieldStatus, redeemcode.FieldNotes, redeemcode.FieldBalanceCardPlanName:
 			values[i] = new(sql.NullString)
 		case redeemcode.FieldUsedAt, redeemcode.FieldCreatedAt, redeemcode.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
@@ -185,6 +189,19 @@ func (_m *RedeemCode) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ValidityDays = int(value.Int64)
 			}
+		case redeemcode.FieldBalanceCardPlanID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_card_plan_id", values[i])
+			} else if value.Valid {
+				_m.BalanceCardPlanID = new(int64)
+				*_m.BalanceCardPlanID = value.Int64
+			}
+		case redeemcode.FieldBalanceCardPlanName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_card_plan_name", values[i])
+			} else if value.Valid {
+				_m.BalanceCardPlanName = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -273,6 +290,14 @@ func (_m *RedeemCode) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("validity_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ValidityDays))
+	builder.WriteString(", ")
+	if v := _m.BalanceCardPlanID; v != nil {
+		builder.WriteString("balance_card_plan_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("balance_card_plan_name=")
+	builder.WriteString(_m.BalanceCardPlanName)
 	builder.WriteByte(')')
 	return builder.String()
 }

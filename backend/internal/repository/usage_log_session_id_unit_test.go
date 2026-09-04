@@ -32,6 +32,8 @@ func newSessionIDUsageLog(sessionID *string) *service.UsageLog {
 // arg slice / arg-type table so the five INSERT column lists stay in sync. session_id
 // is immediately before native_compaction_v2; created_at is always last.
 func TestPrepareUsageLogInsert_SessionIDArgWiring(t *testing.T) {
+	require.Len(t, usageLogInsertArgTypes, 65, "arg-type table must include upstream and balance-card fields")
+
 	sessionID := "sess-persisted-123"
 	prepared := prepareUsageLogInsert(newSessionIDUsageLog(&sessionID))
 
@@ -81,15 +83,15 @@ func TestPrepareUsageLogInsert_RequestedReasoningEffortArgWiring(t *testing.T) {
 	})
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
-	require.Equal(t, "text", usageLogInsertArgTypes[48], "requested_reasoning_effort must follow reasoning_effort")
-	require.Equal(t, "text", usageLogInsertArgTypes[47], "reasoning_effort arg type must stay text")
+	require.Equal(t, "text", usageLogInsertArgTypes[51], "requested_reasoning_effort must follow reasoning_effort")
+	require.Equal(t, "text", usageLogInsertArgTypes[50], "reasoning_effort arg type must stay text")
 
-	forwardedArg, ok := prepared.args[47].(sql.NullString)
+	forwardedArg, ok := prepared.args[50].(sql.NullString)
 	require.True(t, ok)
 	require.True(t, forwardedArg.Valid)
 	require.Equal(t, forwarded, forwardedArg.String)
 
-	requestedArg, ok := prepared.args[48].(sql.NullString)
+	requestedArg, ok := prepared.args[51].(sql.NullString)
 	require.True(t, ok)
 	require.True(t, requestedArg.Valid)
 	require.Equal(t, requested, requestedArg.String)

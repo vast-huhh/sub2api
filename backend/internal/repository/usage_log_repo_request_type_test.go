@@ -52,6 +52,9 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // upstream_model_mismatch
 			sqlmock.AnyArg(), // group_id
 			sqlmock.AnyArg(), // subscription_id
+			sqlmock.AnyArg(), // balance_card_id
+			log.BalanceCardCost,
+			log.CashBalanceCost,
 			log.InputTokens,
 			log.OutputTokens,
 			log.CacheCreationTokens,
@@ -147,6 +150,9 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // upstream_model_mismatch
 			sqlmock.AnyArg(), // group_id
 			sqlmock.AnyArg(), // subscription_id
+			sqlmock.AnyArg(), // balance_card_id
+			log.BalanceCardCost,
+			log.CashBalanceCost,
 			log.InputTokens,
 			log.OutputTokens,
 			log.CacheCreationTokens,
@@ -280,7 +286,7 @@ func TestPrepareUsageLogInsert_PersistsNativeCompactionV2WithoutChangingRequestT
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
 	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2])
 	require.Equal(t, true, prepared.args[len(prepared.args)-2])
-	require.Equal(t, int16(service.RequestTypeStream), prepared.args[30])
+	require.Equal(t, int16(service.RequestTypeStream), prepared.args[33])
 	require.Equal(t, service.RequestTypeStream, log.RequestType)
 	require.True(t, log.Stream)
 	require.False(t, log.OpenAIWSMode)
@@ -307,11 +313,11 @@ func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
 		CreatedAt:          time.Date(2025, 1, 6, 12, 0, 0, 0, time.UTC),
 	})
 
-	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[38])
-	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[39])
-	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[40])
-	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[41])
-	breakdownJSON, ok := prepared.args[42].(string)
+	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[41])
+	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[42])
+	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[43])
+	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[44])
+	breakdownJSON, ok := prepared.args[45].(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"1K":1,"4K":1}`, breakdownJSON)
 }
@@ -922,6 +928,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},
 			sql.NullInt64{},
 			sql.NullInt64{},
+			sql.NullInt64{}, // balance_card_id
+			0.0,             // balance_card_cost
+			0.0,             // cash_balance_cost
 			0, 0, 0, 0, 0, 0,
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
@@ -990,6 +999,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},    // upstream_model_mismatch
 			sql.NullInt64{},   // group_id
 			sql.NullInt64{},   // subscription_id
+			sql.NullInt64{},   // balance_card_id
+			0.0,               // balance_card_cost
+			0.0,               // cash_balance_cost
 			1,                 // input_tokens
 			2,                 // output_tokens
 			3,                 // cache_creation_tokens
@@ -1065,6 +1077,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},
 			sql.NullInt64{},
 			sql.NullInt64{},
+			sql.NullInt64{}, // balance_card_id
+			0.0,             // balance_card_cost
+			0.0,             // cash_balance_cost
 			1, 2, 3, 4, 5, 6,
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
@@ -1129,6 +1144,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},
 			sql.NullInt64{},
 			sql.NullInt64{},
+			sql.NullInt64{}, // balance_card_id
+			0.0,             // balance_card_cost
+			0.0,             // cash_balance_cost
 			1, 2, 3, 4, 5, 6,
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
