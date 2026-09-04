@@ -257,6 +257,7 @@ export default {
         concurrency: '并发数',
         subscription: '订阅',
         invitation: '邀请码',
+        balance_card: '余额卡',
         // 管理员在用户管理页面调整余额/并发时产生的记录
         admin_balance: '余额（管理员）',
         admin_concurrency: '并发数（管理员）'
@@ -266,6 +267,7 @@ export default {
       concurrency: '并发数',
       subscription: '订阅',
       invitation: '邀请码',
+      balanceCard: '余额卡',
       invitationHint: '邀请码用于限制用户注册，使用后自动标记为已使用。',
       allTypes: '全部类型',
       allStatus: '全部状态',
@@ -313,6 +315,10 @@ export default {
       failedToCopy: '复制失败',
       selectGroup: '选择分组',
       selectGroupPlaceholder: '选择订阅分组',
+      selectBalanceCardPlan: '选择余额卡套餐',
+      selectBalanceCardPlanPlaceholder: '选择用于兑换的余额卡套餐',
+      balanceCardPlanRequired: '请选择余额卡套餐',
+      balanceCardQueueHint: '用户兑换后按当前套餐配置发卡；已有生效卡时新卡自动排队。',
       validityDays: '有效天数',
       codeExpiry: '兑换码过期',
       neverExpires: '永不过期',

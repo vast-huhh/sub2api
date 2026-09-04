@@ -119,8 +119,10 @@ function simulateGuard(
     const restrictedPaths = [
       '/admin/groups',
       '/admin/subscriptions',
+      '/admin/balance-cards',
       '/admin/redeem',
       '/subscriptions',
+      '/balance-cards',
       '/redeem',
     ]
     if (restrictedPaths.some((path) => toPath.startsWith(path))) {

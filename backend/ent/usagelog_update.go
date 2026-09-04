@@ -309,6 +309,75 @@ func (_u *UsageLogUpdate) ClearSubscriptionID() *UsageLogUpdate {
 	return _u
 }
 
+// SetBalanceCardID sets the "balance_card_id" field.
+func (_u *UsageLogUpdate) SetBalanceCardID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetBalanceCardID()
+	_u.mutation.SetBalanceCardID(v)
+	return _u
+}
+
+// SetNillableBalanceCardID sets the "balance_card_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableBalanceCardID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetBalanceCardID(*v)
+	}
+	return _u
+}
+
+// AddBalanceCardID adds value to the "balance_card_id" field.
+func (_u *UsageLogUpdate) AddBalanceCardID(v int64) *UsageLogUpdate {
+	_u.mutation.AddBalanceCardID(v)
+	return _u
+}
+
+// ClearBalanceCardID clears the value of the "balance_card_id" field.
+func (_u *UsageLogUpdate) ClearBalanceCardID() *UsageLogUpdate {
+	_u.mutation.ClearBalanceCardID()
+	return _u
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (_u *UsageLogUpdate) SetBalanceCardCost(v float64) *UsageLogUpdate {
+	_u.mutation.ResetBalanceCardCost()
+	_u.mutation.SetBalanceCardCost(v)
+	return _u
+}
+
+// SetNillableBalanceCardCost sets the "balance_card_cost" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableBalanceCardCost(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetBalanceCardCost(*v)
+	}
+	return _u
+}
+
+// AddBalanceCardCost adds value to the "balance_card_cost" field.
+func (_u *UsageLogUpdate) AddBalanceCardCost(v float64) *UsageLogUpdate {
+	_u.mutation.AddBalanceCardCost(v)
+	return _u
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (_u *UsageLogUpdate) SetCashBalanceCost(v float64) *UsageLogUpdate {
+	_u.mutation.ResetCashBalanceCost()
+	_u.mutation.SetCashBalanceCost(v)
+	return _u
+}
+
+// SetNillableCashBalanceCost sets the "cash_balance_cost" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableCashBalanceCost(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetCashBalanceCost(*v)
+	}
+	return _u
+}
+
+// AddCashBalanceCost adds value to the "cash_balance_cost" field.
+func (_u *UsageLogUpdate) AddCashBalanceCost(v float64) *UsageLogUpdate {
+	_u.mutation.AddCashBalanceCost(v)
+	return _u
+}
+
 // SetInputTokens sets the "input_tokens" field.
 func (_u *UsageLogUpdate) SetInputTokens(v int) *UsageLogUpdate {
 	_u.mutation.ResetInputTokens()
@@ -1192,6 +1261,27 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
 	}
+	if value, ok := _u.mutation.BalanceCardID(); ok {
+		_spec.SetField(usagelog.FieldBalanceCardID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceCardID(); ok {
+		_spec.AddField(usagelog.FieldBalanceCardID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalanceCardIDCleared() {
+		_spec.ClearField(usagelog.FieldBalanceCardID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalanceCardCost(); ok {
+		_spec.SetField(usagelog.FieldBalanceCardCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceCardCost(); ok {
+		_spec.AddField(usagelog.FieldBalanceCardCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CashBalanceCost(); ok {
+		_spec.SetField(usagelog.FieldCashBalanceCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCashBalanceCost(); ok {
+		_spec.AddField(usagelog.FieldCashBalanceCost, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
 	}
@@ -1820,6 +1910,75 @@ func (_u *UsageLogUpdateOne) SetNillableSubscriptionID(v *int64) *UsageLogUpdate
 // ClearSubscriptionID clears the value of the "subscription_id" field.
 func (_u *UsageLogUpdateOne) ClearSubscriptionID() *UsageLogUpdateOne {
 	_u.mutation.ClearSubscriptionID()
+	return _u
+}
+
+// SetBalanceCardID sets the "balance_card_id" field.
+func (_u *UsageLogUpdateOne) SetBalanceCardID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetBalanceCardID()
+	_u.mutation.SetBalanceCardID(v)
+	return _u
+}
+
+// SetNillableBalanceCardID sets the "balance_card_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableBalanceCardID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetBalanceCardID(*v)
+	}
+	return _u
+}
+
+// AddBalanceCardID adds value to the "balance_card_id" field.
+func (_u *UsageLogUpdateOne) AddBalanceCardID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddBalanceCardID(v)
+	return _u
+}
+
+// ClearBalanceCardID clears the value of the "balance_card_id" field.
+func (_u *UsageLogUpdateOne) ClearBalanceCardID() *UsageLogUpdateOne {
+	_u.mutation.ClearBalanceCardID()
+	return _u
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (_u *UsageLogUpdateOne) SetBalanceCardCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetBalanceCardCost()
+	_u.mutation.SetBalanceCardCost(v)
+	return _u
+}
+
+// SetNillableBalanceCardCost sets the "balance_card_cost" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableBalanceCardCost(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetBalanceCardCost(*v)
+	}
+	return _u
+}
+
+// AddBalanceCardCost adds value to the "balance_card_cost" field.
+func (_u *UsageLogUpdateOne) AddBalanceCardCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddBalanceCardCost(v)
+	return _u
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (_u *UsageLogUpdateOne) SetCashBalanceCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetCashBalanceCost()
+	_u.mutation.SetCashBalanceCost(v)
+	return _u
+}
+
+// SetNillableCashBalanceCost sets the "cash_balance_cost" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableCashBalanceCost(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetCashBalanceCost(*v)
+	}
+	return _u
+}
+
+// AddCashBalanceCost adds value to the "cash_balance_cost" field.
+func (_u *UsageLogUpdateOne) AddCashBalanceCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddCashBalanceCost(v)
 	return _u
 }
 
@@ -2735,6 +2894,27 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.BalanceCardID(); ok {
+		_spec.SetField(usagelog.FieldBalanceCardID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceCardID(); ok {
+		_spec.AddField(usagelog.FieldBalanceCardID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalanceCardIDCleared() {
+		_spec.ClearField(usagelog.FieldBalanceCardID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalanceCardCost(); ok {
+		_spec.SetField(usagelog.FieldBalanceCardCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceCardCost(); ok {
+		_spec.AddField(usagelog.FieldBalanceCardCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CashBalanceCost(); ok {
+		_spec.SetField(usagelog.FieldCashBalanceCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCashBalanceCost(); ok {
+		_spec.AddField(usagelog.FieldCashBalanceCost, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)

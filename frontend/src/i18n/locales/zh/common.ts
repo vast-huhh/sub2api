@@ -190,6 +190,8 @@ export default {
     logout: '退出登录',
     github: 'GitHub',
     mySubscriptions: '我的订阅',
+    myBalanceCards: '我的余额卡',
+    balanceCards: '余额卡管理',
     buySubscription: '充值/订阅',
     docs: '文档',
     myOrders: '我的订单',

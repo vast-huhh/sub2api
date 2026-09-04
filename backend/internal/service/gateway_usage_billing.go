@@ -354,6 +354,11 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 		deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
 		return false, nil
 	}
+	if usageLog != nil {
+		usageLog.BalanceCardID = result.BalanceCardID
+		usageLog.BalanceCardCost = result.BalanceCardCost
+		usageLog.CashBalanceCost = resolvedCashBalanceCost(p, result)
+	}
 
 	if result.APIKeyQuotaExhausted {
 		if invalidator, ok := p.APIKeyService.(apiKeyAuthCacheInvalidator); ok && p.APIKey != nil && p.APIKey.Key != "" {
@@ -375,6 +380,11 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, p.Cost.ActualCost)
 		}
 	} else if p.Cost.ActualCost > 0 && p.User != nil {
+		if result != nil && result.BalanceCardID != nil {
+			if err := deps.billingCacheService.InvalidateBalanceCard(ctx, p.User.ID); err != nil {
+				slog.Warn("invalidate balance card cache after deduction failed", "user_id", p.User.ID, "error", err)
+			}
+		}
 		syncBalanceCacheAfterDeduction(ctx, p, deps, result)
 	}
 
@@ -428,6 +438,10 @@ func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingPara
 	if p == nil || p.Cost == nil || p.User == nil || deps == nil || deps.billingCacheService == nil {
 		return
 	}
+	cashCost := resolvedCashBalanceCost(p, result)
+	if cashCost <= 0 {
+		return
+	}
 	if result != nil && result.NewBalance != nil && deps.billingCacheService.balanceBelowEligibilityThreshold(*result.NewBalance) {
 		if err := deps.billingCacheService.InvalidateUserBalance(ctx, p.User.ID); err != nil {
 			slog.Warn("invalidate balance cache after exhausted deduction failed",
@@ -439,7 +453,7 @@ func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingPara
 		}
 		return
 	}
-	deps.billingCacheService.QueueDeductBalance(p.User.ID, p.Cost.ActualCost)
+	deps.billingCacheService.QueueDeductBalance(p.User.ID, cashCost)
 }
 
 // notifyBalanceLow sends balance low notification after deduction.
@@ -451,10 +465,11 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 			slog.Error("panic in notifyBalanceLow", "recover", r)
 		}
 	}()
-	if p.IsSubscriptionBill || p.Cost.ActualCost <= 0 || p.User == nil || deps.balanceNotifyService == nil {
+	cashCost := resolvedCashBalanceCost(p, result)
+	if p.IsSubscriptionBill || cashCost <= 0 || p.User == nil || deps.balanceNotifyService == nil {
 		slog.Debug("notifyBalanceLow: skipped",
 			"is_subscription", p.IsSubscriptionBill,
-			"actual_cost", p.Cost.ActualCost,
+			"actual_cost", cashCost,
 			"user_nil", p.User == nil,
 			"service_nil", deps.balanceNotifyService == nil,
 		)
@@ -465,22 +480,37 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 	slog.Debug("notifyBalanceLow: calling CheckBalanceAfterDeduction",
 		"user_id", p.User.ID,
 		"old_balance", oldBalance,
-		"cost", p.Cost.ActualCost,
+		"cost", cashCost,
 		"notify_enabled", p.User.BalanceNotifyEnabled,
 		"threshold", p.User.BalanceNotifyThreshold,
 		"result_has_new_balance", result != nil && result.NewBalance != nil,
 	)
-	deps.balanceNotifyService.CheckBalanceAfterDeduction(context.Background(), p.User, oldBalance, p.Cost.ActualCost)
+	deps.balanceNotifyService.CheckBalanceAfterDeduction(context.Background(), p.User, oldBalance, cashCost)
 }
 
 // resolveOldBalance returns the pre-deduction balance.
 // Prefers the DB transaction result (newBalance + cost) over snapshot.
 func resolveOldBalance(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
 	if result != nil && result.NewBalance != nil {
-		return *result.NewBalance + p.Cost.ActualCost
+		return *result.NewBalance + resolvedCashBalanceCost(p, result)
 	}
 	// Legacy fallback: snapshot balance from request context
 	return p.User.Balance
+}
+
+func resolvedCashBalanceCost(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
+	if p == nil || p.Cost == nil {
+		return 0
+	}
+	if result == nil {
+		return p.Cost.ActualCost
+	}
+	if result.BalanceCardID != nil || result.NewBalance != nil || result.CashBalanceCost > 0 {
+		return result.CashBalanceCost
+	}
+	// Compatibility for custom/test UsageBillingRepository implementations that
+	// predate wallet allocation fields.
+	return p.Cost.ActualCost
 }
 
 // notifyAccountQuota sends account quota threshold notification after increment.
