@@ -113,6 +113,8 @@ type BillingCacheService struct {
 	cfg                   *config.Config
 	circuitBreaker        *billingCircuitBreaker
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	balanceCardRepo       BalanceCardRepository
+	balanceCardCache      BalanceCardCache
 
 	cacheWriteChan     chan cacheWriteTask
 	cacheWriteWg       sync.WaitGroup
@@ -121,11 +123,23 @@ type BillingCacheService struct {
 	stopped            atomic.Bool
 	balanceLoadSF      singleflight.Group
 	quotaLoadSF        singleflight.Group
+	balanceCardLoadSF  singleflight.Group
 	// 丢弃日志节流计数器（减少高负载下日志噪音）
 	cacheWriteDropFullCount     uint64
 	cacheWriteDropFullLastLog   int64
 	cacheWriteDropClosedCount   uint64
 	cacheWriteDropClosedLastLog int64
+}
+
+// SetBalanceCardDeps connects the independent balance-card wallet to the
+// standard balance eligibility path. It remains optional for unit tests and
+// deployments that have not enabled the migration yet.
+func (s *BillingCacheService) SetBalanceCardDeps(repo BalanceCardRepository, cache BalanceCardCache) {
+	if s == nil {
+		return
+	}
+	s.balanceCardRepo = repo
+	s.balanceCardCache = cache
 }
 
 // NewBillingCacheService 创建计费缓存服务
@@ -877,6 +891,29 @@ func (s *BillingCacheService) balanceBelowEligibilityThreshold(balance float64) 
 
 // checkBalanceEligibility 检查余额模式资格
 func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64) error {
+	card, err := s.getBalanceCardSnapshot(ctx, userID)
+	if err != nil {
+		if s.circuitBreaker != nil {
+			s.circuitBreaker.OnFailure(err)
+		}
+		logger.LegacyPrintf("service.billing_cache", "ALERT: balance card check failed for user %d: %v", userID, err)
+		return ErrBillingServiceUnavailable.WithCause(err)
+	}
+	if card != nil {
+		now := timezone.Now()
+		if card.ExpiresAt.After(now) {
+			if card.AvailableRemaining(now) > 0 || (card.AutoResetEnabled && card.CanAdvanceReset(now)) {
+				if s.circuitBreaker != nil {
+					s.circuitBreaker.OnSuccess()
+				}
+				return nil
+			}
+			if !card.FallbackEnabled {
+				return card.LimitError(now)
+			}
+		}
+	}
+
 	balance, err := s.GetUserBalance(ctx, userID)
 	if err != nil {
 		if s.circuitBreaker != nil {
@@ -894,6 +931,44 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	}
 
 	return nil
+}
+
+func (s *BillingCacheService) getBalanceCardSnapshot(ctx context.Context, userID int64) (*BalanceCardWalletSnapshot, error) {
+	if s == nil || s.balanceCardRepo == nil {
+		return nil, nil
+	}
+	if s.balanceCardCache != nil {
+		if snapshot, found, err := s.balanceCardCache.Get(ctx, userID); err == nil && found {
+			return snapshot, nil
+		}
+	}
+	value, err, _ := s.balanceCardLoadSF.Do(strconv.FormatInt(userID, 10), func() (any, error) {
+		loadCtx, cancel := context.WithTimeout(context.Background(), balanceLoadTimeout)
+		defer cancel()
+		snapshot, err := s.balanceCardRepo.GetWalletSnapshot(loadCtx, userID, timezone.Now())
+		if err != nil {
+			return nil, err
+		}
+		if s.balanceCardCache != nil {
+			_ = s.balanceCardCache.Set(loadCtx, userID, snapshot)
+		}
+		return snapshot, nil
+	})
+	if err != nil || value == nil {
+		return nil, err
+	}
+	snapshot, ok := value.(*BalanceCardWalletSnapshot)
+	if !ok {
+		return nil, fmt.Errorf("unexpected balance card snapshot type: %T", value)
+	}
+	return snapshot, nil
+}
+
+func (s *BillingCacheService) InvalidateBalanceCard(ctx context.Context, userID int64) error {
+	if s == nil || s.balanceCardCache == nil {
+		return nil
+	}
+	return s.balanceCardCache.Invalidate(ctx, userID)
 }
 
 // checkSubscriptionEligibility 检查订阅模式资格

@@ -119,7 +119,7 @@
                 'badge',
                 value === 'balance'
                   ? 'badge-success'
-                  : value === 'subscription'
+                  : value === 'subscription' || value === 'balance_card'
                     ? 'badge-warning'
                     : 'badge-primary'
               ]"
@@ -136,6 +136,9 @@
                 <span v-if="row.group" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
                   >({{ row.group.name }})</span
                 >
+              </template>
+              <template v-else-if="row.type === 'balance_card'">
+                {{ row.balance_card_plan_name || t('admin.redeem.balanceCard') }}
               </template>
               <template v-else>{{ value }}</template>
             </span>
@@ -282,13 +285,27 @@
           <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             {{ t('admin.redeem.generateCodesTitle') }}
           </h2>
-          <form @submit.prevent="handleGenerateCodes" class="space-y-4">
+          <form
+            data-test="generate-redeem-form"
+            class="space-y-4"
+            @submit.prevent="handleGenerateCodes"
+          >
             <div>
               <label class="input-label">{{ t('admin.redeem.codeType') }}</label>
-              <Select v-model="generateForm.type" :options="typeOptions" />
+              <Select
+                data-test="generate-code-type"
+                v-model="generateForm.type"
+                :options="typeOptions"
+              />
             </div>
             <!-- 余额/并发类型：显示数值输入 -->
-            <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
+            <div
+              v-if="
+                generateForm.type !== 'subscription' &&
+                generateForm.type !== 'invitation' &&
+                generateForm.type !== 'balance_card'
+              "
+            >
               <label class="input-label">
                 {{
                   generateForm.type === 'balance'
@@ -356,6 +373,16 @@
                 />
               </div>
             </template>
+            <div v-if="generateForm.type === 'balance_card'">
+              <label class="input-label">{{ t('admin.redeem.selectBalanceCardPlan') }}</label>
+              <Select
+                data-test="balance-card-plan-select"
+                v-model="generateForm.balance_card_plan_id"
+                :options="balanceCardPlanOptions"
+                :placeholder="t('admin.redeem.selectBalanceCardPlanPlaceholder')"
+              />
+              <p class="input-hint">{{ t('admin.redeem.balanceCardQueueHint') }}</p>
+            </div>
             <div>
               <label class="input-label">{{ t('admin.redeem.codeExpiry') }}</label>
               <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -629,7 +656,8 @@ import type {
   Group,
   GroupPlatform,
   SubscriptionType,
-  BatchUpdateRedeemCodeFields
+  BatchUpdateRedeemCodeFields,
+  BalanceCardPlan
 } from '@/types'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -660,6 +688,7 @@ const showGenerateDialog = ref(false)
 const showResultDialog = ref(false)
 const generatedCodes = ref<RedeemCode[]>([])
 const subscriptionGroups = ref<Group[]>([])
+const balanceCardPlans = ref<BalanceCardPlan[]>([])
 
 // 订阅类型分组选项
 const subscriptionGroupOptions = computed(() => {
@@ -679,6 +708,15 @@ const batchGroupOptions = computed(() => [
   { value: null, label: t('admin.redeem.clearGroup') },
   ...subscriptionGroupOptions.value
 ])
+
+const balanceCardPlanOptions = computed(() =>
+  balanceCardPlans.value
+    .filter((plan) => plan.status === 'active')
+    .map((plan) => ({
+      value: plan.id,
+      label: `${plan.name} · ${plan.validity_days} ${t('admin.redeem.days')}`
+    }))
+)
 
 const generatedCodesText = computed(() => {
   return generatedCodes.value.map((code) => code.code).join('\n')
@@ -743,7 +781,8 @@ const typeOptions = computed(() => [
   { value: 'balance', label: t('admin.redeem.balance') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
   { value: 'subscription', label: t('admin.redeem.subscription') },
-  { value: 'invitation', label: t('admin.redeem.invitation') }
+  { value: 'invitation', label: t('admin.redeem.invitation') },
+  { value: 'balance_card', label: t('admin.redeem.balanceCard') }
 ])
 
 const filterTypeOptions = computed(() => [
@@ -751,7 +790,8 @@ const filterTypeOptions = computed(() => [
   { value: 'balance', label: t('admin.redeem.balance') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
   { value: 'subscription', label: t('admin.redeem.subscription') },
-  { value: 'invitation', label: t('admin.redeem.invitation') }
+  { value: 'invitation', label: t('admin.redeem.invitation') },
+  { value: 'balance_card', label: t('admin.redeem.balanceCard') }
 ])
 
 const filterStatusOptions = computed(() => [
@@ -841,6 +881,7 @@ const generateForm = reactive({
   count: 1,
   group_id: null as number | null,
   validity_days: 30,
+  balance_card_plan_id: null as number | null,
   expiry_option: 'never' as RedeemCodeExpiryOption,
   custom_expiry_days: 7
 })
@@ -853,6 +894,9 @@ watch(
       generateForm.value = 0
     } else if (generateForm.value === 0) {
       generateForm.value = 10
+    }
+    if (newType !== 'balance_card') {
+      generateForm.balance_card_plan_id = null
     }
   }
 )
@@ -1031,6 +1075,10 @@ const handleGenerateCodes = async () => {
     appStore.showError(t('admin.redeem.groupRequired'))
     return
   }
+  if (generateForm.type === 'balance_card' && !generateForm.balance_card_plan_id) {
+    appStore.showError(t('admin.redeem.balanceCardPlanRequired'))
+    return
+  }
 
   const expiresInDays = getRedeemCodeExpiresInDays()
   if (expiresInDays === null) {
@@ -1046,7 +1094,8 @@ const handleGenerateCodes = async () => {
       generateForm.value,
       generateForm.type === 'subscription' ? generateForm.group_id : undefined,
       generateForm.type === 'subscription' ? generateForm.validity_days : undefined,
-      expiresInDays
+      expiresInDays,
+      generateForm.type === 'balance_card' ? generateForm.balance_card_plan_id : undefined
     )
     showGenerateDialog.value = false
     generatedCodes.value = result
@@ -1054,6 +1103,7 @@ const handleGenerateCodes = async () => {
     // 重置表单
     generateForm.group_id = null
     generateForm.validity_days = 30
+    generateForm.balance_card_plan_id = null
     generateForm.expiry_option = 'never'
     generateForm.custom_expiry_days = 7
     loadCodes()
@@ -1185,9 +1235,18 @@ const loadSubscriptionGroups = async () => {
   }
 }
 
+const loadBalanceCardPlans = async () => {
+  try {
+    balanceCardPlans.value = await adminAPI.balanceCards.listPlans()
+  } catch (error) {
+    console.error('Error loading balance card plans:', error)
+  }
+}
+
 onMounted(() => {
   loadCodes()
   loadSubscriptionGroups()
+  loadBalanceCardPlans()
 })
 
 onUnmounted(() => {

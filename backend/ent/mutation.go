@@ -38783,28 +38783,31 @@ func (m *ProxyMutation) ResetEdge(name string) error {
 // RedeemCodeMutation represents an operation that mutates the RedeemCode nodes in the graph.
 type RedeemCodeMutation struct {
 	config
-	op               Op
-	typ              string
-	id               *int64
-	code             *string
-	_type            *string
-	value            *float64
-	addvalue         *float64
-	status           *string
-	used_at          *time.Time
-	notes            *string
-	created_at       *time.Time
-	expires_at       *time.Time
-	validity_days    *int
-	addvalidity_days *int
-	clearedFields    map[string]struct{}
-	user             *int64
-	cleareduser      bool
-	group            *int64
-	clearedgroup     bool
-	done             bool
-	oldValue         func(context.Context) (*RedeemCode, error)
-	predicates       []predicate.RedeemCode
+	op                      Op
+	typ                     string
+	id                      *int64
+	code                    *string
+	_type                   *string
+	value                   *float64
+	addvalue                *float64
+	status                  *string
+	used_at                 *time.Time
+	notes                   *string
+	created_at              *time.Time
+	expires_at              *time.Time
+	validity_days           *int
+	addvalidity_days        *int
+	balance_card_plan_id    *int64
+	addbalance_card_plan_id *int64
+	balance_card_plan_name  *string
+	clearedFields           map[string]struct{}
+	user                    *int64
+	cleareduser             bool
+	group                   *int64
+	clearedgroup            bool
+	done                    bool
+	oldValue                func(context.Context) (*RedeemCode, error)
+	predicates              []predicate.RedeemCode
 }
 
 var _ ent.Mutation = (*RedeemCodeMutation)(nil)
@@ -39406,6 +39409,112 @@ func (m *RedeemCodeMutation) ResetValidityDays() {
 	m.addvalidity_days = nil
 }
 
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (m *RedeemCodeMutation) SetBalanceCardPlanID(i int64) {
+	m.balance_card_plan_id = &i
+	m.addbalance_card_plan_id = nil
+}
+
+// BalanceCardPlanID returns the value of the "balance_card_plan_id" field in the mutation.
+func (m *RedeemCodeMutation) BalanceCardPlanID() (r int64, exists bool) {
+	v := m.balance_card_plan_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalanceCardPlanID returns the old "balance_card_plan_id" field's value of the RedeemCode entity.
+// If the RedeemCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeMutation) OldBalanceCardPlanID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalanceCardPlanID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalanceCardPlanID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalanceCardPlanID: %w", err)
+	}
+	return oldValue.BalanceCardPlanID, nil
+}
+
+// AddBalanceCardPlanID adds i to the "balance_card_plan_id" field.
+func (m *RedeemCodeMutation) AddBalanceCardPlanID(i int64) {
+	if m.addbalance_card_plan_id != nil {
+		*m.addbalance_card_plan_id += i
+	} else {
+		m.addbalance_card_plan_id = &i
+	}
+}
+
+// AddedBalanceCardPlanID returns the value that was added to the "balance_card_plan_id" field in this mutation.
+func (m *RedeemCodeMutation) AddedBalanceCardPlanID() (r int64, exists bool) {
+	v := m.addbalance_card_plan_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalanceCardPlanID clears the value of the "balance_card_plan_id" field.
+func (m *RedeemCodeMutation) ClearBalanceCardPlanID() {
+	m.balance_card_plan_id = nil
+	m.addbalance_card_plan_id = nil
+	m.clearedFields[redeemcode.FieldBalanceCardPlanID] = struct{}{}
+}
+
+// BalanceCardPlanIDCleared returns if the "balance_card_plan_id" field was cleared in this mutation.
+func (m *RedeemCodeMutation) BalanceCardPlanIDCleared() bool {
+	_, ok := m.clearedFields[redeemcode.FieldBalanceCardPlanID]
+	return ok
+}
+
+// ResetBalanceCardPlanID resets all changes to the "balance_card_plan_id" field.
+func (m *RedeemCodeMutation) ResetBalanceCardPlanID() {
+	m.balance_card_plan_id = nil
+	m.addbalance_card_plan_id = nil
+	delete(m.clearedFields, redeemcode.FieldBalanceCardPlanID)
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (m *RedeemCodeMutation) SetBalanceCardPlanName(s string) {
+	m.balance_card_plan_name = &s
+}
+
+// BalanceCardPlanName returns the value of the "balance_card_plan_name" field in the mutation.
+func (m *RedeemCodeMutation) BalanceCardPlanName() (r string, exists bool) {
+	v := m.balance_card_plan_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalanceCardPlanName returns the old "balance_card_plan_name" field's value of the RedeemCode entity.
+// If the RedeemCode object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RedeemCodeMutation) OldBalanceCardPlanName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalanceCardPlanName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalanceCardPlanName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalanceCardPlanName: %w", err)
+	}
+	return oldValue.BalanceCardPlanName, nil
+}
+
+// ResetBalanceCardPlanName resets all changes to the "balance_card_plan_name" field.
+func (m *RedeemCodeMutation) ResetBalanceCardPlanName() {
+	m.balance_card_plan_name = nil
+}
+
 // SetUserID sets the "user" edge to the User entity by id.
 func (m *RedeemCodeMutation) SetUserID(id int64) {
 	m.user = &id
@@ -39507,7 +39616,7 @@ func (m *RedeemCodeMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RedeemCodeMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 13)
 	if m.code != nil {
 		fields = append(fields, redeemcode.FieldCode)
 	}
@@ -39541,6 +39650,12 @@ func (m *RedeemCodeMutation) Fields() []string {
 	if m.validity_days != nil {
 		fields = append(fields, redeemcode.FieldValidityDays)
 	}
+	if m.balance_card_plan_id != nil {
+		fields = append(fields, redeemcode.FieldBalanceCardPlanID)
+	}
+	if m.balance_card_plan_name != nil {
+		fields = append(fields, redeemcode.FieldBalanceCardPlanName)
+	}
 	return fields
 }
 
@@ -39571,6 +39686,10 @@ func (m *RedeemCodeMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case redeemcode.FieldValidityDays:
 		return m.ValidityDays()
+	case redeemcode.FieldBalanceCardPlanID:
+		return m.BalanceCardPlanID()
+	case redeemcode.FieldBalanceCardPlanName:
+		return m.BalanceCardPlanName()
 	}
 	return nil, false
 }
@@ -39602,6 +39721,10 @@ func (m *RedeemCodeMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldGroupID(ctx)
 	case redeemcode.FieldValidityDays:
 		return m.OldValidityDays(ctx)
+	case redeemcode.FieldBalanceCardPlanID:
+		return m.OldBalanceCardPlanID(ctx)
+	case redeemcode.FieldBalanceCardPlanName:
+		return m.OldBalanceCardPlanName(ctx)
 	}
 	return nil, fmt.Errorf("unknown RedeemCode field %s", name)
 }
@@ -39688,6 +39811,20 @@ func (m *RedeemCodeMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetValidityDays(v)
 		return nil
+	case redeemcode.FieldBalanceCardPlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalanceCardPlanID(v)
+		return nil
+	case redeemcode.FieldBalanceCardPlanName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalanceCardPlanName(v)
+		return nil
 	}
 	return fmt.Errorf("unknown RedeemCode field %s", name)
 }
@@ -39702,6 +39839,9 @@ func (m *RedeemCodeMutation) AddedFields() []string {
 	if m.addvalidity_days != nil {
 		fields = append(fields, redeemcode.FieldValidityDays)
 	}
+	if m.addbalance_card_plan_id != nil {
+		fields = append(fields, redeemcode.FieldBalanceCardPlanID)
+	}
 	return fields
 }
 
@@ -39714,6 +39854,8 @@ func (m *RedeemCodeMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedValue()
 	case redeemcode.FieldValidityDays:
 		return m.AddedValidityDays()
+	case redeemcode.FieldBalanceCardPlanID:
+		return m.AddedBalanceCardPlanID()
 	}
 	return nil, false
 }
@@ -39737,6 +39879,13 @@ func (m *RedeemCodeMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddValidityDays(v)
 		return nil
+	case redeemcode.FieldBalanceCardPlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalanceCardPlanID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown RedeemCode numeric field %s", name)
 }
@@ -39759,6 +39908,9 @@ func (m *RedeemCodeMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(redeemcode.FieldGroupID) {
 		fields = append(fields, redeemcode.FieldGroupID)
+	}
+	if m.FieldCleared(redeemcode.FieldBalanceCardPlanID) {
+		fields = append(fields, redeemcode.FieldBalanceCardPlanID)
 	}
 	return fields
 }
@@ -39788,6 +39940,9 @@ func (m *RedeemCodeMutation) ClearField(name string) error {
 		return nil
 	case redeemcode.FieldGroupID:
 		m.ClearGroupID()
+		return nil
+	case redeemcode.FieldBalanceCardPlanID:
+		m.ClearBalanceCardPlanID()
 		return nil
 	}
 	return fmt.Errorf("unknown RedeemCode nullable field %s", name)
@@ -39829,6 +39984,12 @@ func (m *RedeemCodeMutation) ResetField(name string) error {
 		return nil
 	case redeemcode.FieldValidityDays:
 		m.ResetValidityDays()
+		return nil
+	case redeemcode.FieldBalanceCardPlanID:
+		m.ResetBalanceCardPlanID()
+		return nil
+	case redeemcode.FieldBalanceCardPlanName:
+		m.ResetBalanceCardPlanName()
 		return nil
 	}
 	return fmt.Errorf("unknown RedeemCode field %s", name)
@@ -44541,6 +44702,12 @@ type UsageLogMutation struct {
 	model_mapping_chain          *string
 	billing_tier                 *string
 	billing_mode                 *string
+	balance_card_id              *int64
+	addbalance_card_id           *int64
+	balance_card_cost            *float64
+	addbalance_card_cost         *float64
+	cash_balance_cost            *float64
+	addcash_balance_cost         *float64
 	input_tokens                 *int
 	addinput_tokens              *int
 	output_tokens                *int
@@ -45396,6 +45563,188 @@ func (m *UsageLogMutation) SubscriptionIDCleared() bool {
 func (m *UsageLogMutation) ResetSubscriptionID() {
 	m.subscription = nil
 	delete(m.clearedFields, usagelog.FieldSubscriptionID)
+}
+
+// SetBalanceCardID sets the "balance_card_id" field.
+func (m *UsageLogMutation) SetBalanceCardID(i int64) {
+	m.balance_card_id = &i
+	m.addbalance_card_id = nil
+}
+
+// BalanceCardID returns the value of the "balance_card_id" field in the mutation.
+func (m *UsageLogMutation) BalanceCardID() (r int64, exists bool) {
+	v := m.balance_card_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalanceCardID returns the old "balance_card_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldBalanceCardID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalanceCardID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalanceCardID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalanceCardID: %w", err)
+	}
+	return oldValue.BalanceCardID, nil
+}
+
+// AddBalanceCardID adds i to the "balance_card_id" field.
+func (m *UsageLogMutation) AddBalanceCardID(i int64) {
+	if m.addbalance_card_id != nil {
+		*m.addbalance_card_id += i
+	} else {
+		m.addbalance_card_id = &i
+	}
+}
+
+// AddedBalanceCardID returns the value that was added to the "balance_card_id" field in this mutation.
+func (m *UsageLogMutation) AddedBalanceCardID() (r int64, exists bool) {
+	v := m.addbalance_card_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalanceCardID clears the value of the "balance_card_id" field.
+func (m *UsageLogMutation) ClearBalanceCardID() {
+	m.balance_card_id = nil
+	m.addbalance_card_id = nil
+	m.clearedFields[usagelog.FieldBalanceCardID] = struct{}{}
+}
+
+// BalanceCardIDCleared returns if the "balance_card_id" field was cleared in this mutation.
+func (m *UsageLogMutation) BalanceCardIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldBalanceCardID]
+	return ok
+}
+
+// ResetBalanceCardID resets all changes to the "balance_card_id" field.
+func (m *UsageLogMutation) ResetBalanceCardID() {
+	m.balance_card_id = nil
+	m.addbalance_card_id = nil
+	delete(m.clearedFields, usagelog.FieldBalanceCardID)
+}
+
+// SetBalanceCardCost sets the "balance_card_cost" field.
+func (m *UsageLogMutation) SetBalanceCardCost(f float64) {
+	m.balance_card_cost = &f
+	m.addbalance_card_cost = nil
+}
+
+// BalanceCardCost returns the value of the "balance_card_cost" field in the mutation.
+func (m *UsageLogMutation) BalanceCardCost() (r float64, exists bool) {
+	v := m.balance_card_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalanceCardCost returns the old "balance_card_cost" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldBalanceCardCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalanceCardCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalanceCardCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalanceCardCost: %w", err)
+	}
+	return oldValue.BalanceCardCost, nil
+}
+
+// AddBalanceCardCost adds f to the "balance_card_cost" field.
+func (m *UsageLogMutation) AddBalanceCardCost(f float64) {
+	if m.addbalance_card_cost != nil {
+		*m.addbalance_card_cost += f
+	} else {
+		m.addbalance_card_cost = &f
+	}
+}
+
+// AddedBalanceCardCost returns the value that was added to the "balance_card_cost" field in this mutation.
+func (m *UsageLogMutation) AddedBalanceCardCost() (r float64, exists bool) {
+	v := m.addbalance_card_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBalanceCardCost resets all changes to the "balance_card_cost" field.
+func (m *UsageLogMutation) ResetBalanceCardCost() {
+	m.balance_card_cost = nil
+	m.addbalance_card_cost = nil
+}
+
+// SetCashBalanceCost sets the "cash_balance_cost" field.
+func (m *UsageLogMutation) SetCashBalanceCost(f float64) {
+	m.cash_balance_cost = &f
+	m.addcash_balance_cost = nil
+}
+
+// CashBalanceCost returns the value of the "cash_balance_cost" field in the mutation.
+func (m *UsageLogMutation) CashBalanceCost() (r float64, exists bool) {
+	v := m.cash_balance_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCashBalanceCost returns the old "cash_balance_cost" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldCashBalanceCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCashBalanceCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCashBalanceCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCashBalanceCost: %w", err)
+	}
+	return oldValue.CashBalanceCost, nil
+}
+
+// AddCashBalanceCost adds f to the "cash_balance_cost" field.
+func (m *UsageLogMutation) AddCashBalanceCost(f float64) {
+	if m.addcash_balance_cost != nil {
+		*m.addcash_balance_cost += f
+	} else {
+		m.addcash_balance_cost = &f
+	}
+}
+
+// AddedCashBalanceCost returns the value that was added to the "cash_balance_cost" field in this mutation.
+func (m *UsageLogMutation) AddedCashBalanceCost() (r float64, exists bool) {
+	v := m.addcash_balance_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCashBalanceCost resets all changes to the "cash_balance_cost" field.
+func (m *UsageLogMutation) ResetCashBalanceCost() {
+	m.cash_balance_cost = nil
+	m.addcash_balance_cost = nil
 }
 
 // SetInputTokens sets the "input_tokens" field.
@@ -47279,7 +47628,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 47)
+	fields := make([]string, 0, 50)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -47324,6 +47673,15 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.subscription != nil {
 		fields = append(fields, usagelog.FieldSubscriptionID)
+	}
+	if m.balance_card_id != nil {
+		fields = append(fields, usagelog.FieldBalanceCardID)
+	}
+	if m.balance_card_cost != nil {
+		fields = append(fields, usagelog.FieldBalanceCardCost)
+	}
+	if m.cash_balance_cost != nil {
+		fields = append(fields, usagelog.FieldCashBalanceCost)
 	}
 	if m.input_tokens != nil {
 		fields = append(fields, usagelog.FieldInputTokens)
@@ -47459,6 +47817,12 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case usagelog.FieldSubscriptionID:
 		return m.SubscriptionID()
+	case usagelog.FieldBalanceCardID:
+		return m.BalanceCardID()
+	case usagelog.FieldBalanceCardCost:
+		return m.BalanceCardCost()
+	case usagelog.FieldCashBalanceCost:
+		return m.CashBalanceCost()
 	case usagelog.FieldInputTokens:
 		return m.InputTokens()
 	case usagelog.FieldOutputTokens:
@@ -47562,6 +47926,12 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldGroupID(ctx)
 	case usagelog.FieldSubscriptionID:
 		return m.OldSubscriptionID(ctx)
+	case usagelog.FieldBalanceCardID:
+		return m.OldBalanceCardID(ctx)
+	case usagelog.FieldBalanceCardCost:
+		return m.OldBalanceCardCost(ctx)
+	case usagelog.FieldCashBalanceCost:
+		return m.OldCashBalanceCost(ctx)
 	case usagelog.FieldInputTokens:
 		return m.OldInputTokens(ctx)
 	case usagelog.FieldOutputTokens:
@@ -47739,6 +48109,27 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSubscriptionID(v)
+		return nil
+	case usagelog.FieldBalanceCardID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalanceCardID(v)
+		return nil
+	case usagelog.FieldBalanceCardCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalanceCardCost(v)
+		return nil
+	case usagelog.FieldCashBalanceCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCashBalanceCost(v)
 		return nil
 	case usagelog.FieldInputTokens:
 		v, ok := value.(int)
@@ -47975,6 +48366,15 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addchannel_id != nil {
 		fields = append(fields, usagelog.FieldChannelID)
 	}
+	if m.addbalance_card_id != nil {
+		fields = append(fields, usagelog.FieldBalanceCardID)
+	}
+	if m.addbalance_card_cost != nil {
+		fields = append(fields, usagelog.FieldBalanceCardCost)
+	}
+	if m.addcash_balance_cost != nil {
+		fields = append(fields, usagelog.FieldCashBalanceCost)
+	}
 	if m.addinput_tokens != nil {
 		fields = append(fields, usagelog.FieldInputTokens)
 	}
@@ -48045,6 +48445,12 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case usagelog.FieldChannelID:
 		return m.AddedChannelID()
+	case usagelog.FieldBalanceCardID:
+		return m.AddedBalanceCardID()
+	case usagelog.FieldBalanceCardCost:
+		return m.AddedBalanceCardCost()
+	case usagelog.FieldCashBalanceCost:
+		return m.AddedCashBalanceCost()
 	case usagelog.FieldInputTokens:
 		return m.AddedInputTokens()
 	case usagelog.FieldOutputTokens:
@@ -48100,6 +48506,27 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddChannelID(v)
+		return nil
+	case usagelog.FieldBalanceCardID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalanceCardID(v)
+		return nil
+	case usagelog.FieldBalanceCardCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalanceCardCost(v)
+		return nil
+	case usagelog.FieldCashBalanceCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCashBalanceCost(v)
 		return nil
 	case usagelog.FieldInputTokens:
 		v, ok := value.(int)
@@ -48279,6 +48706,9 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
 	}
+	if m.FieldCleared(usagelog.FieldBalanceCardID) {
+		fields = append(fields, usagelog.FieldBalanceCardID)
+	}
 	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -48358,6 +48788,9 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case usagelog.FieldBalanceCardID:
+		m.ClearBalanceCardID()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ClearAccountRateMultiplier()
@@ -48447,6 +48880,15 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ResetSubscriptionID()
+		return nil
+	case usagelog.FieldBalanceCardID:
+		m.ResetBalanceCardID()
+		return nil
+	case usagelog.FieldBalanceCardCost:
+		m.ResetBalanceCardCost()
+		return nil
+	case usagelog.FieldCashBalanceCost:
+		m.ResetCashBalanceCost()
 		return nil
 	case usagelog.FieldInputTokens:
 		m.ResetInputTokens()

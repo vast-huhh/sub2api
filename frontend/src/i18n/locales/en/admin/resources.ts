@@ -250,6 +250,7 @@ export default {
       concurrency: 'Concurrency',
       subscription: 'Subscription',
       invitation: 'Invitation',
+      balanceCard: 'Balance Card',
       invitationHint: 'Invitation codes are used to restrict user registration. They are automatically marked as used after use.',
       unused: 'Unused',
       used: 'Used',
@@ -316,12 +317,18 @@ export default {
         concurrency: 'Concurrency',
         subscription: 'Subscription',
         invitation: 'Invitation',
+        balance_card: 'Balance Card',
         // Admin adjustment types (created when admin modifies user balance/concurrency)
         admin_balance: 'Balance (Admin)',
         admin_concurrency: 'Concurrency (Admin)'
       },
       selectGroup: 'Select Group',
       selectGroupPlaceholder: 'Choose a subscription group',
+      selectBalanceCardPlan: 'Select Balance Card Plan',
+      selectBalanceCardPlanPlaceholder: 'Choose the balance card plan to redeem',
+      balanceCardPlanRequired: 'Please select a balance card plan',
+      balanceCardQueueHint:
+        'The card uses the current plan settings; it queues automatically when the user already has an active card.',
       validityDays: 'Validity Days',
       codeExpiry: 'Code Expiry',
       neverExpires: 'Never expires',

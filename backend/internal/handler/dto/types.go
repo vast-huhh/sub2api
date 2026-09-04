@@ -511,8 +511,10 @@ type RedeemCode struct {
 	CreatedAt time.Time  `json:"created_at"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
-	GroupID      *int64 `json:"group_id"`
-	ValidityDays int    `json:"validity_days"`
+	GroupID             *int64 `json:"group_id"`
+	ValidityDays        int    `json:"validity_days"`
+	BalanceCardPlanID   *int64 `json:"balance_card_plan_id,omitempty"`
+	BalanceCardPlanName string `json:"balance_card_plan_name,omitempty"`
 
 	// Notes is only populated for admin_balance/admin_concurrency types
 	// so users can see why they were charged or credited
@@ -602,8 +604,11 @@ type UsageLog struct {
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.
 	UpstreamEndpoint *string `json:"upstream_endpoint,omitempty"`
 
-	GroupID        *int64 `json:"group_id"`
-	SubscriptionID *int64 `json:"subscription_id"`
+	GroupID         *int64  `json:"group_id"`
+	SubscriptionID  *int64  `json:"subscription_id"`
+	BalanceCardID   *int64  `json:"balance_card_id,omitempty"`
+	BalanceCardCost float64 `json:"balance_card_cost"`
+	CashBalanceCost float64 `json:"cash_balance_cost"`
 
 	InputTokens         int `json:"input_tokens"`
 	OutputTokens        int `json:"output_tokens"`

@@ -170,6 +170,34 @@ func (_c *RedeemCodeCreate) SetNillableValidityDays(v *int) *RedeemCodeCreate {
 	return _c
 }
 
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (_c *RedeemCodeCreate) SetBalanceCardPlanID(v int64) *RedeemCodeCreate {
+	_c.mutation.SetBalanceCardPlanID(v)
+	return _c
+}
+
+// SetNillableBalanceCardPlanID sets the "balance_card_plan_id" field if the given value is not nil.
+func (_c *RedeemCodeCreate) SetNillableBalanceCardPlanID(v *int64) *RedeemCodeCreate {
+	if v != nil {
+		_c.SetBalanceCardPlanID(*v)
+	}
+	return _c
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (_c *RedeemCodeCreate) SetBalanceCardPlanName(v string) *RedeemCodeCreate {
+	_c.mutation.SetBalanceCardPlanName(v)
+	return _c
+}
+
+// SetNillableBalanceCardPlanName sets the "balance_card_plan_name" field if the given value is not nil.
+func (_c *RedeemCodeCreate) SetNillableBalanceCardPlanName(v *string) *RedeemCodeCreate {
+	if v != nil {
+		_c.SetBalanceCardPlanName(*v)
+	}
+	return _c
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (_c *RedeemCodeCreate) SetUserID(id int64) *RedeemCodeCreate {
 	_c.mutation.SetUserID(id)
@@ -249,6 +277,10 @@ func (_c *RedeemCodeCreate) defaults() {
 		v := redeemcode.DefaultValidityDays
 		_c.mutation.SetValidityDays(v)
 	}
+	if _, ok := _c.mutation.BalanceCardPlanName(); !ok {
+		v := redeemcode.DefaultBalanceCardPlanName
+		_c.mutation.SetBalanceCardPlanName(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -285,6 +317,14 @@ func (_c *RedeemCodeCreate) check() error {
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "RedeemCode.validity_days"`)}
+	}
+	if _, ok := _c.mutation.BalanceCardPlanName(); !ok {
+		return &ValidationError{Name: "balance_card_plan_name", err: errors.New(`ent: missing required field "RedeemCode.balance_card_plan_name"`)}
+	}
+	if v, ok := _c.mutation.BalanceCardPlanName(); ok {
+		if err := redeemcode.BalanceCardPlanNameValidator(v); err != nil {
+			return &ValidationError{Name: "balance_card_plan_name", err: fmt.Errorf(`ent: validator failed for field "RedeemCode.balance_card_plan_name": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -348,6 +388,14 @@ func (_c *RedeemCodeCreate) createSpec() (*RedeemCode, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ValidityDays(); ok {
 		_spec.SetField(redeemcode.FieldValidityDays, field.TypeInt, value)
 		_node.ValidityDays = value
+	}
+	if value, ok := _c.mutation.BalanceCardPlanID(); ok {
+		_spec.SetField(redeemcode.FieldBalanceCardPlanID, field.TypeInt64, value)
+		_node.BalanceCardPlanID = &value
+	}
+	if value, ok := _c.mutation.BalanceCardPlanName(); ok {
+		_spec.SetField(redeemcode.FieldBalanceCardPlanName, field.TypeString, value)
+		_node.BalanceCardPlanName = value
 	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -597,6 +645,42 @@ func (u *RedeemCodeUpsert) AddValidityDays(v int) *RedeemCodeUpsert {
 	return u
 }
 
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsert) SetBalanceCardPlanID(v int64) *RedeemCodeUpsert {
+	u.Set(redeemcode.FieldBalanceCardPlanID, v)
+	return u
+}
+
+// UpdateBalanceCardPlanID sets the "balance_card_plan_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsert) UpdateBalanceCardPlanID() *RedeemCodeUpsert {
+	u.SetExcluded(redeemcode.FieldBalanceCardPlanID)
+	return u
+}
+
+// AddBalanceCardPlanID adds v to the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsert) AddBalanceCardPlanID(v int64) *RedeemCodeUpsert {
+	u.Add(redeemcode.FieldBalanceCardPlanID, v)
+	return u
+}
+
+// ClearBalanceCardPlanID clears the value of the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsert) ClearBalanceCardPlanID() *RedeemCodeUpsert {
+	u.SetNull(redeemcode.FieldBalanceCardPlanID)
+	return u
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (u *RedeemCodeUpsert) SetBalanceCardPlanName(v string) *RedeemCodeUpsert {
+	u.Set(redeemcode.FieldBalanceCardPlanName, v)
+	return u
+}
+
+// UpdateBalanceCardPlanName sets the "balance_card_plan_name" field to the value that was provided on create.
+func (u *RedeemCodeUpsert) UpdateBalanceCardPlanName() *RedeemCodeUpsert {
+	u.SetExcluded(redeemcode.FieldBalanceCardPlanName)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -828,6 +912,48 @@ func (u *RedeemCodeUpsertOne) AddValidityDays(v int) *RedeemCodeUpsertOne {
 func (u *RedeemCodeUpsertOne) UpdateValidityDays() *RedeemCodeUpsertOne {
 	return u.Update(func(s *RedeemCodeUpsert) {
 		s.UpdateValidityDays()
+	})
+}
+
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsertOne) SetBalanceCardPlanID(v int64) *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBalanceCardPlanID(v)
+	})
+}
+
+// AddBalanceCardPlanID adds v to the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsertOne) AddBalanceCardPlanID(v int64) *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.AddBalanceCardPlanID(v)
+	})
+}
+
+// UpdateBalanceCardPlanID sets the "balance_card_plan_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsertOne) UpdateBalanceCardPlanID() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBalanceCardPlanID()
+	})
+}
+
+// ClearBalanceCardPlanID clears the value of the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsertOne) ClearBalanceCardPlanID() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.ClearBalanceCardPlanID()
+	})
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (u *RedeemCodeUpsertOne) SetBalanceCardPlanName(v string) *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBalanceCardPlanName(v)
+	})
+}
+
+// UpdateBalanceCardPlanName sets the "balance_card_plan_name" field to the value that was provided on create.
+func (u *RedeemCodeUpsertOne) UpdateBalanceCardPlanName() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBalanceCardPlanName()
 	})
 }
 
@@ -1228,6 +1354,48 @@ func (u *RedeemCodeUpsertBulk) AddValidityDays(v int) *RedeemCodeUpsertBulk {
 func (u *RedeemCodeUpsertBulk) UpdateValidityDays() *RedeemCodeUpsertBulk {
 	return u.Update(func(s *RedeemCodeUpsert) {
 		s.UpdateValidityDays()
+	})
+}
+
+// SetBalanceCardPlanID sets the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsertBulk) SetBalanceCardPlanID(v int64) *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBalanceCardPlanID(v)
+	})
+}
+
+// AddBalanceCardPlanID adds v to the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsertBulk) AddBalanceCardPlanID(v int64) *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.AddBalanceCardPlanID(v)
+	})
+}
+
+// UpdateBalanceCardPlanID sets the "balance_card_plan_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsertBulk) UpdateBalanceCardPlanID() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBalanceCardPlanID()
+	})
+}
+
+// ClearBalanceCardPlanID clears the value of the "balance_card_plan_id" field.
+func (u *RedeemCodeUpsertBulk) ClearBalanceCardPlanID() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.ClearBalanceCardPlanID()
+	})
+}
+
+// SetBalanceCardPlanName sets the "balance_card_plan_name" field.
+func (u *RedeemCodeUpsertBulk) SetBalanceCardPlanName(v string) *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBalanceCardPlanName(v)
+	})
+}
+
+// UpdateBalanceCardPlanName sets the "balance_card_plan_name" field to the value that was provided on create.
+func (u *RedeemCodeUpsertBulk) UpdateBalanceCardPlanName() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBalanceCardPlanName()
 	})
 }
 

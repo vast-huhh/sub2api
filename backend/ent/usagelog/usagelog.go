@@ -44,6 +44,12 @@ const (
 	FieldGroupID = "group_id"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
+	// FieldBalanceCardID holds the string denoting the balance_card_id field in the database.
+	FieldBalanceCardID = "balance_card_id"
+	// FieldBalanceCardCost holds the string denoting the balance_card_cost field in the database.
+	FieldBalanceCardCost = "balance_card_cost"
+	// FieldCashBalanceCost holds the string denoting the cash_balance_cost field in the database.
+	FieldCashBalanceCost = "cash_balance_cost"
 	// FieldInputTokens holds the string denoting the input_tokens field in the database.
 	FieldInputTokens = "input_tokens"
 	// FieldOutputTokens holds the string denoting the output_tokens field in the database.
@@ -175,6 +181,9 @@ var Columns = []string{
 	FieldBillingMode,
 	FieldGroupID,
 	FieldSubscriptionID,
+	FieldBalanceCardID,
+	FieldBalanceCardCost,
+	FieldCashBalanceCost,
 	FieldInputTokens,
 	FieldOutputTokens,
 	FieldCacheCreationTokens,
@@ -236,6 +245,10 @@ var (
 	BillingTierValidator func(string) error
 	// BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	BillingModeValidator func(string) error
+	// DefaultBalanceCardCost holds the default value on creation for the "balance_card_cost" field.
+	DefaultBalanceCardCost float64
+	// DefaultCashBalanceCost holds the default value on creation for the "cash_balance_cost" field.
+	DefaultCashBalanceCost float64
 	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
 	DefaultInputTokens int
 	// DefaultOutputTokens holds the default value on creation for the "output_tokens" field.
@@ -373,6 +386,21 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // BySubscriptionID orders the results by the subscription_id field.
 func BySubscriptionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionID, opts...).ToFunc()
+}
+
+// ByBalanceCardID orders the results by the balance_card_id field.
+func ByBalanceCardID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalanceCardID, opts...).ToFunc()
+}
+
+// ByBalanceCardCost orders the results by the balance_card_cost field.
+func ByBalanceCardCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalanceCardCost, opts...).ToFunc()
+}
+
+// ByCashBalanceCost orders the results by the cash_balance_cost field.
+func ByCashBalanceCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCashBalanceCost, opts...).ToFunc()
 }
 
 // ByInputTokens orders the results by the input_tokens field.

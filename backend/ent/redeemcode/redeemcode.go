@@ -36,6 +36,10 @@ const (
 	FieldGroupID = "group_id"
 	// FieldValidityDays holds the string denoting the validity_days field in the database.
 	FieldValidityDays = "validity_days"
+	// FieldBalanceCardPlanID holds the string denoting the balance_card_plan_id field in the database.
+	FieldBalanceCardPlanID = "balance_card_plan_id"
+	// FieldBalanceCardPlanName holds the string denoting the balance_card_plan_name field in the database.
+	FieldBalanceCardPlanName = "balance_card_plan_name"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
@@ -72,6 +76,8 @@ var Columns = []string{
 	FieldExpiresAt,
 	FieldGroupID,
 	FieldValidityDays,
+	FieldBalanceCardPlanID,
+	FieldBalanceCardPlanName,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -101,6 +107,10 @@ var (
 	DefaultCreatedAt func() time.Time
 	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
 	DefaultValidityDays int
+	// DefaultBalanceCardPlanName holds the default value on creation for the "balance_card_plan_name" field.
+	DefaultBalanceCardPlanName string
+	// BalanceCardPlanNameValidator is a validator for the "balance_card_plan_name" field. It is called by the builders before save.
+	BalanceCardPlanNameValidator func(string) error
 )
 
 // OrderOption defines the ordering options for the RedeemCode queries.
@@ -164,6 +174,16 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // ByValidityDays orders the results by the validity_days field.
 func ByValidityDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldValidityDays, opts...).ToFunc()
+}
+
+// ByBalanceCardPlanID orders the results by the balance_card_plan_id field.
+func ByBalanceCardPlanID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalanceCardPlanID, opts...).ToFunc()
+}
+
+// ByBalanceCardPlanName orders the results by the balance_card_plan_name field.
+func ByBalanceCardPlanName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalanceCardPlanName, opts...).ToFunc()
 }
 
 // ByUserField orders the results by user field.
