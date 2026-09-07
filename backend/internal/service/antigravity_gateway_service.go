@@ -366,9 +366,9 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 	// 构建请求体
 	var requestBody []byte
 	if strings.HasPrefix(modelID, "gemini-") {
-		requestBody, err = s.buildGeminiTestRequest(projectID, mappedModel)
+		requestBody, err = s.buildGeminiTestRequest(ctx, projectID, mappedModel)
 	} else {
-		requestBody, err = s.buildClaudeTestRequest(projectID, mappedModel)
+		requestBody, err = s.buildClaudeTestRequest(ctx, projectID, mappedModel)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("构建请求失败: %w", err)
@@ -440,14 +440,22 @@ func testConnectionHandleError(
 }
 
 // buildGeminiTestRequest 构建 Gemini 格式测试请求
-// 使用最小 token 消耗：输入 "." + maxOutputTokens: 1
-func (s *AntigravityGatewayService) buildGeminiTestRequest(projectID, model string) ([]byte, error) {
+// 手动测试保留最小消耗，定时算术测试留出完整回答空间。
+func (s *AntigravityGatewayService) buildGeminiTestRequest(ctx context.Context, projectID, model string) ([]byte, error) {
+	prompt := "."
+	if !isImageGenerationModel(model) {
+		prompt = scheduledTestPrompt(ctx, prompt)
+	}
+	maxTokens := 1
+	if prompt != "." {
+		maxTokens = 128
+	}
 	payload := map[string]any{
 		"contents": []map[string]any{
 			{
 				"role": "user",
 				"parts": []map[string]any{
-					{"text": "."},
+					{"text": prompt},
 				},
 			},
 		},
@@ -458,7 +466,7 @@ func (s *AntigravityGatewayService) buildGeminiTestRequest(projectID, model stri
 			},
 		},
 		"generationConfig": map[string]any{
-			"maxOutputTokens": 1,
+			"maxOutputTokens": maxTokens,
 		},
 	}
 	payloadBytes, _ := json.Marshal(payload)
@@ -466,17 +474,26 @@ func (s *AntigravityGatewayService) buildGeminiTestRequest(projectID, model stri
 }
 
 // buildClaudeTestRequest 构建 Claude 格式测试请求并转换为 Gemini 格式
-// 使用最小 token 消耗：输入 "." + MaxTokens: 1
-func (s *AntigravityGatewayService) buildClaudeTestRequest(projectID, mappedModel string) ([]byte, error) {
+// 手动测试保留最小消耗，定时算术测试留出完整回答空间。
+func (s *AntigravityGatewayService) buildClaudeTestRequest(ctx context.Context, projectID, mappedModel string) ([]byte, error) {
+	prompt := scheduledTestPrompt(ctx, ".")
+	maxTokens := 1
+	if prompt != "." {
+		maxTokens = 128
+	}
+	content, err := json.Marshal(prompt)
+	if err != nil {
+		return nil, err
+	}
 	claudeReq := &antigravity.ClaudeRequest{
 		Model: mappedModel,
 		Messages: []antigravity.ClaudeMessage{
 			{
 				Role:    "user",
-				Content: json.RawMessage(`"."`),
+				Content: content,
 			},
 		},
-		MaxTokens: 1,
+		MaxTokens: maxTokens,
 		Stream:    false,
 	}
 	return antigravity.TransformClaudeToGemini(claudeReq, projectID, mappedModel)
