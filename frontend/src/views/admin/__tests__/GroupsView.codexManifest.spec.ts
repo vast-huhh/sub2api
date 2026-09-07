@@ -56,6 +56,10 @@ vi.mock("@/stores/onboarding", () => ({
   }),
 }));
 
+vi.mock("@/stores/auth", () => ({
+  useAuthStore: () => ({ isSimpleMode: false }),
+}));
+
 vi.mock("vue-i18n", async () => {
   const actual = await vi.importActual<typeof import("vue-i18n")>("vue-i18n");
   return {
@@ -123,7 +127,7 @@ const sourceGroup = {
   account_count: 1,
   active_account_count: 1,
   rate_limited_account_count: 0,
-  models_list_config: undefined,
+  model_allowlist: undefined,
   codex_models_manifest_config: {
     enabled: false,
     account_ids: [],
