@@ -22,7 +22,7 @@ func NewBalanceCardCache(rdb *redis.Client) service.BalanceCardCache {
 }
 
 func balanceCardWalletKey(userID int64) string {
-	return fmt.Sprintf("billing:balance-card:%d", userID)
+	return fmt.Sprintf("billing:balance-card:v2:%d", userID)
 }
 
 func (c *balanceCardCache) Get(ctx context.Context, userID int64) (*service.BalanceCardWalletSnapshot, bool, error) {

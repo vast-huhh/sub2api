@@ -530,6 +530,7 @@ export interface UserBalanceCard {
   daily_window_start: string | null
   daily_usage_usd: number
   weekly_window_start: string | null
+  weekly_daily_advance_seconds?: number
   weekly_usage_usd: number
   monthly_usage_usd: number
   fallback_enabled: boolean
