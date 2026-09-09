@@ -29,6 +29,26 @@ function monthCard(overrides: Partial<UserBalanceCard> = {}): UserBalanceCard {
 }
 
 describe('balance-card advance reset', () => {
+  it('credits four daily advances against the remaining week', () => {
+    const card = monthCard({
+      weekly_window_start: new Date(nowMs - DAY_MS).toISOString(),
+      weekly_daily_advance_seconds: 4 * 86400,
+      expires_at: new Date(nowMs + 3 * DAY_MS).toISOString(),
+    })
+    expect(weeklyResetDurationMs(card, nowMs)).toBe(2 * DAY_MS)
+    expect(balanceCardResetWindow(card, nowMs)).toBe('weekly')
+    expect(balanceCardResetCostDays(card, 'weekly', nowMs)).toBe(2)
+  })
+
+  it('allows a zero-cost weekly reset but still enforces expiry and reset count', () => {
+    const card = monthCard({ weekly_daily_advance_seconds: 4 * 86400 })
+    expect(weeklyResetDurationMs(card, nowMs)).toBe(0)
+    expect(balanceCardResetCostDays(card, 'weekly', nowMs)).toBe(0)
+    expect(balanceCardResetWindow(card, nowMs)).toBe('weekly')
+    expect(balanceCardResetWindow({ ...card, expires_at: new Date(nowMs).toISOString() }, nowMs)).toBeNull()
+    expect(balanceCardResetWindow({ ...card, reset_count: 20 }, nowMs)).toBeNull()
+  })
+
   it('starts a new month-card week and consumes only the current week remainder', () => {
     const card = monthCard()
 

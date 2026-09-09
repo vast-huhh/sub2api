@@ -223,22 +223,23 @@ func deductUsageBillingWallet(ctx context.Context, tx *sql.Tx, cmd *service.Usag
 	}
 
 	var (
-		cardID            int64
-		cardType          string
-		validityDays      int
-		dailyQuota        float64
-		dailyUsage        float64
-		dailyWindowStart  *time.Time
-		weeklyQuota       float64
-		weeklyUsage       float64
-		weeklyWindowStart *time.Time
-		monthlyQuota      float64
-		monthlyUsage      float64
-		fallbackEnabled   bool
-		autoResetEnabled  bool
-		resetCount        int
-		maxResetCount     int
-		expiresAt         time.Time
+		cardID              int64
+		cardType            string
+		validityDays        int
+		dailyQuota          float64
+		dailyUsage          float64
+		dailyWindowStart    *time.Time
+		weeklyQuota         float64
+		weeklyUsage         float64
+		weeklyWindowStart   *time.Time
+		dailyAdvanceSeconds int64
+		monthlyQuota        float64
+		monthlyUsage        float64
+		fallbackEnabled     bool
+		autoResetEnabled    bool
+		resetCount          int
+		maxResetCount       int
+		expiresAt           time.Time
 	)
 	err := tx.QueryRowContext(ctx, `SELECT id, card_type, validity_days,
 		daily_quota_usd::double precision, daily_usage_usd::double precision,
@@ -246,13 +247,13 @@ func deductUsageBillingWallet(ctx context.Context, tx *sql.Tx, cmd *service.Usag
 		weekly_usage_usd::double precision, weekly_window_start,
 		monthly_quota_usd::double precision, monthly_usage_usd::double precision,
 		fallback_enabled, auto_reset_enabled, reset_count,
-		max_reset_count, expires_at
+		max_reset_count, expires_at, weekly_daily_advance_seconds
 		FROM user_balance_cards
 		WHERE user_id=$1 AND status='active' AND starts_at <= $2 AND expires_at > $2
 		LIMIT 1 FOR UPDATE`, cmd.UserID, now).Scan(
 		&cardID, &cardType, &validityDays, &dailyQuota, &dailyUsage, &dailyWindowStart,
 		&weeklyQuota, &weeklyUsage, &weeklyWindowStart, &monthlyQuota, &monthlyUsage,
-		&fallbackEnabled, &autoResetEnabled, &resetCount, &maxResetCount, &expiresAt)
+		&fallbackEnabled, &autoResetEnabled, &resetCount, &maxResetCount, &expiresAt, &dailyAdvanceSeconds)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -283,20 +284,24 @@ func deductUsageBillingWallet(ctx context.Context, tx *sql.Tx, cmd *service.Usag
 			WeeklyQuotaUSD: weeklyQuota, WeeklyUsageUSD: weeklyUsage,
 			WeeklyWindowStart: weeklyWindowStart, MonthlyQuotaUSD: monthlyQuota,
 			MonthlyUsageUSD: monthlyUsage, ResetCount: resetCount,
-			MaxResetCount: maxResetCount,
+			MaxResetCount:             maxResetCount,
+			WeeklyDailyAdvanceSeconds: dailyAdvanceSeconds,
 		}
 		remaining := quotaState.AvailableRemaining(now)
 		resetWindow := quotaState.AdvanceResetWindow(now)
 		if autoResetEnabled && resetWindow != "" {
-			resetDuration := service.BalanceCardResetDuration(resetWindow, weeklyWindowStart, now)
+			resetDuration := service.BalanceCardResetDuration(resetWindow, weeklyWindowStart, now, dailyAdvanceSeconds)
 			oldExpiresAt := expiresAt
 			expiresAt = expiresAt.Add(-resetDuration)
 			resetMetadata := map[string]any{"window": resetWindow}
+			resetMetadata["weekly_daily_advance_seconds_before"] = dailyAdvanceSeconds
+			resetMetadata["reset_duration_seconds"] = resetDuration.Seconds()
 			if resetWindow == service.BalanceCardResetWindowWeekly {
 				weekStart := now
 				if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
 					daily_usage_usd=0, daily_window_start=$2,
 					weekly_usage_usd=0, weekly_window_start=$3,
+					weekly_daily_advance_seconds=0,
 					expires_at=$4, reset_count=reset_count+1,
 					updated_at=$5 WHERE id=$1`, cardID, today, weekStart, expiresAt, now); err != nil {
 					return err
@@ -307,12 +312,17 @@ func deductUsageBillingWallet(ctx context.Context, tx *sql.Tx, cmd *service.Usag
 				weeklyWindowStart = &weekStart
 				quotaState.WeeklyUsageUSD = 0
 				quotaState.WeeklyWindowStart = weeklyWindowStart
+				quotaState.WeeklyDailyAdvanceSeconds = 0
 			} else {
 				if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
 					daily_usage_usd=0, daily_window_start=$2,
+					weekly_daily_advance_seconds=weekly_daily_advance_seconds + CASE WHEN card_type='month' AND weekly_quota_usd>0 THEN 86400 ELSE 0 END,
 					expires_at=$3, reset_count=reset_count+1,
 					updated_at=$4 WHERE id=$1`, cardID, today, expiresAt, now); err != nil {
 					return err
+				}
+				if cardType == service.BalanceCardTypeMonth && weeklyQuota > 0 {
+					quotaState.WeeklyDailyAdvanceSeconds += 86400
 				}
 			}
 			if err := shiftPendingBalanceCardsTx(ctx, tx, cmd.UserID, cardID, oldExpiresAt, -resetDuration, now); err != nil {

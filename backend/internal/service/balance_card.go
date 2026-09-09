@@ -62,34 +62,35 @@ type BalanceCardPlan struct {
 }
 
 type UserBalanceCard struct {
-	ID                int64      `json:"id"`
-	UserID            int64      `json:"user_id"`
-	UserEmail         string     `json:"user_email,omitempty"`
-	PlanID            *int64     `json:"plan_id"`
-	PlanName          string     `json:"plan_name"`
-	CardType          string     `json:"card_type"`
-	ValidityDays      int        `json:"validity_days"`
-	DailyQuotaUSD     float64    `json:"daily_quota_usd"`
-	WeeklyQuotaUSD    float64    `json:"weekly_quota_usd"`
-	MonthlyQuotaUSD   float64    `json:"monthly_quota_usd"`
-	MaxResetCount     int        `json:"max_reset_count"`
-	StartsAt          time.Time  `json:"starts_at"`
-	ExpiresAt         time.Time  `json:"expires_at"`
-	Status            string     `json:"status"`
-	DailyWindowStart  *time.Time `json:"daily_window_start"`
-	DailyUsageUSD     float64    `json:"daily_usage_usd"`
-	WeeklyWindowStart *time.Time `json:"weekly_window_start"`
-	WeeklyUsageUSD    float64    `json:"weekly_usage_usd"`
-	MonthlyUsageUSD   float64    `json:"monthly_usage_usd"`
-	FallbackEnabled   bool       `json:"fallback_enabled"`
-	AutoResetEnabled  bool       `json:"auto_reset_enabled"`
-	ResetCount        int        `json:"reset_count"`
-	AssignedBy        *int64     `json:"assigned_by"`
-	AssignedAt        time.Time  `json:"assigned_at"`
-	ActivatedAt       *time.Time `json:"activated_at"`
-	Notes             string     `json:"notes"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID                        int64      `json:"id"`
+	UserID                    int64      `json:"user_id"`
+	UserEmail                 string     `json:"user_email,omitempty"`
+	PlanID                    *int64     `json:"plan_id"`
+	PlanName                  string     `json:"plan_name"`
+	CardType                  string     `json:"card_type"`
+	ValidityDays              int        `json:"validity_days"`
+	DailyQuotaUSD             float64    `json:"daily_quota_usd"`
+	WeeklyQuotaUSD            float64    `json:"weekly_quota_usd"`
+	MonthlyQuotaUSD           float64    `json:"monthly_quota_usd"`
+	MaxResetCount             int        `json:"max_reset_count"`
+	StartsAt                  time.Time  `json:"starts_at"`
+	ExpiresAt                 time.Time  `json:"expires_at"`
+	Status                    string     `json:"status"`
+	DailyWindowStart          *time.Time `json:"daily_window_start"`
+	DailyUsageUSD             float64    `json:"daily_usage_usd"`
+	WeeklyWindowStart         *time.Time `json:"weekly_window_start"`
+	WeeklyDailyAdvanceSeconds int64      `json:"weekly_daily_advance_seconds"`
+	WeeklyUsageUSD            float64    `json:"weekly_usage_usd"`
+	MonthlyUsageUSD           float64    `json:"monthly_usage_usd"`
+	FallbackEnabled           bool       `json:"fallback_enabled"`
+	AutoResetEnabled          bool       `json:"auto_reset_enabled"`
+	ResetCount                int        `json:"reset_count"`
+	AssignedBy                *int64     `json:"assigned_by"`
+	AssignedAt                time.Time  `json:"assigned_at"`
+	ActivatedAt               *time.Time `json:"activated_at"`
+	Notes                     string     `json:"notes"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	UpdatedAt                 time.Time  `json:"updated_at"`
 }
 
 func (c *UserBalanceCard) EffectiveDailyUsage(now time.Time) float64 {
@@ -195,12 +196,14 @@ func balanceCardResetWindow(cardType string, dailyQuota, dailyRemaining, weeklyQ
 	return ""
 }
 
-func BalanceCardResetDuration(window string, weeklyWindowStart *time.Time, now time.Time) time.Duration {
+func BalanceCardResetDuration(window string, weeklyWindowStart *time.Time, now time.Time, dailyAdvanceSeconds int64) time.Duration {
 	if window == BalanceCardResetWindowWeekly {
 		if weeklyWindowStart == nil {
 			return 7 * 24 * time.Hour
 		}
-		remaining := weeklyWindowStart.Add(7 * 24 * time.Hour).Sub(now)
+		// Daily advance resets already paid for part of this week. Do not
+		// charge that same validity again when advancing the weekly allowance.
+		remaining := weeklyWindowStart.Add(7*24*time.Hour).Sub(now) - time.Duration(dailyAdvanceSeconds)*time.Second
 		if remaining > 0 {
 			return remaining
 		}
@@ -234,7 +237,7 @@ func (c *UserBalanceCard) AdvanceResetWindow(now time.Time) string {
 	if window == "" || c.ResetCount >= c.MaxResetCount {
 		return ""
 	}
-	return resetWindowWithSufficientTerm(window, c.WeeklyWindowStart, c.ExpiresAt, now)
+	return resetWindowWithSufficientTerm(window, c.WeeklyWindowStart, c.ExpiresAt, now, c.WeeklyDailyAdvanceSeconds)
 }
 
 func (c *UserBalanceCard) CanAdvanceReset(now time.Time) bool {
@@ -261,24 +264,25 @@ type BalanceCardLedger struct {
 }
 
 type BalanceCardWalletSnapshot struct {
-	CardID            int64      `json:"card_id"`
-	UserID            int64      `json:"user_id"`
-	PlanName          string     `json:"plan_name"`
-	CardType          string     `json:"card_type"`
-	ValidityDays      int        `json:"validity_days"`
-	ExpiresAt         time.Time  `json:"expires_at"`
-	DailyWindowStart  *time.Time `json:"daily_window_start"`
-	DailyQuotaUSD     float64    `json:"daily_quota_usd"`
-	DailyUsageUSD     float64    `json:"daily_usage_usd"`
-	WeeklyQuotaUSD    float64    `json:"weekly_quota_usd"`
-	WeeklyWindowStart *time.Time `json:"weekly_window_start"`
-	WeeklyUsageUSD    float64    `json:"weekly_usage_usd"`
-	MonthlyQuotaUSD   float64    `json:"monthly_quota_usd"`
-	MonthlyUsageUSD   float64    `json:"monthly_usage_usd"`
-	FallbackEnabled   bool       `json:"fallback_enabled"`
-	AutoResetEnabled  bool       `json:"auto_reset_enabled"`
-	ResetCount        int        `json:"reset_count"`
-	MaxResetCount     int        `json:"max_reset_count"`
+	CardID                    int64      `json:"card_id"`
+	UserID                    int64      `json:"user_id"`
+	PlanName                  string     `json:"plan_name"`
+	CardType                  string     `json:"card_type"`
+	ValidityDays              int        `json:"validity_days"`
+	ExpiresAt                 time.Time  `json:"expires_at"`
+	DailyWindowStart          *time.Time `json:"daily_window_start"`
+	DailyQuotaUSD             float64    `json:"daily_quota_usd"`
+	DailyUsageUSD             float64    `json:"daily_usage_usd"`
+	WeeklyQuotaUSD            float64    `json:"weekly_quota_usd"`
+	WeeklyWindowStart         *time.Time `json:"weekly_window_start"`
+	WeeklyDailyAdvanceSeconds int64      `json:"weekly_daily_advance_seconds"`
+	WeeklyUsageUSD            float64    `json:"weekly_usage_usd"`
+	MonthlyQuotaUSD           float64    `json:"monthly_quota_usd"`
+	MonthlyUsageUSD           float64    `json:"monthly_usage_usd"`
+	FallbackEnabled           bool       `json:"fallback_enabled"`
+	AutoResetEnabled          bool       `json:"auto_reset_enabled"`
+	ResetCount                int        `json:"reset_count"`
+	MaxResetCount             int        `json:"max_reset_count"`
 }
 
 func (s *BalanceCardWalletSnapshot) EffectiveDailyUsage(now time.Time) float64 {
@@ -329,9 +333,9 @@ func (s *BalanceCardWalletSnapshot) AvailableRemaining(now time.Time) float64 {
 	return balanceCardAvailableRemaining(s.DailyRemaining(now), s.WeeklyRemaining(now), s.MonthlyRemaining())
 }
 
-func resetWindowWithSufficientTerm(window string, weeklyWindowStart *time.Time, expiresAt, now time.Time) string {
-	duration := BalanceCardResetDuration(window, weeklyWindowStart, now)
-	if duration <= 0 || !expiresAt.After(now.Add(duration)) {
+func resetWindowWithSufficientTerm(window string, weeklyWindowStart *time.Time, expiresAt, now time.Time, dailyAdvanceSeconds int64) string {
+	duration := BalanceCardResetDuration(window, weeklyWindowStart, now, dailyAdvanceSeconds)
+	if window == "" || !expiresAt.After(now.Add(duration)) {
 		return ""
 	}
 	return window
@@ -355,7 +359,7 @@ func (s *BalanceCardWalletSnapshot) AdvanceResetWindow(now time.Time) string {
 	if s == nil || s.ResetCount >= s.MaxResetCount {
 		return ""
 	}
-	return resetWindowWithSufficientTerm(s.PendingResetWindow(now), s.WeeklyWindowStart, s.ExpiresAt, now)
+	return resetWindowWithSufficientTerm(s.PendingResetWindow(now), s.WeeklyWindowStart, s.ExpiresAt, now, s.WeeklyDailyAdvanceSeconds)
 }
 
 func (s *BalanceCardWalletSnapshot) LimitError(now time.Time) error {
