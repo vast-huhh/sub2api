@@ -7,6 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBalanceCardDailyAdvanceCreditMigration(t *testing.T) {
+	content, err := FS.ReadFile("237_balance_card_daily_advance_credit.sql")
+	require.NoError(t, err)
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "ADD COLUMN IF NOT EXISTS weekly_daily_advance_seconds BIGINT NOT NULL DEFAULT 0")
+	require.Contains(t, sql, "l.created_at >= c.weekly_window_start")
+	require.Contains(t, sql, "l.metadata->>'window'='daily'")
+	require.NotContains(t, sql, "SET expires_at")
+	require.NotContains(t, sql, "UPDATE users")
+}
+
 func TestBalanceCardsMigrationCreatesIndependentWallet(t *testing.T) {
 	content, err := FS.ReadFile("231_balance_cards.sql")
 	require.NoError(t, err)

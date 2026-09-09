@@ -10,7 +10,8 @@ function remaining(limit: number, usage: number): number {
 
 export function weeklyResetDurationMs(card: UserBalanceCard, nowMs = Date.now()): number {
   if (!card.weekly_window_start) return 7 * DAY_MS
-  return Math.max(0, new Date(card.weekly_window_start).getTime() + 7 * DAY_MS - nowMs)
+  return Math.max(0, new Date(card.weekly_window_start).getTime() + 7 * DAY_MS - nowMs
+    - (card.weekly_daily_advance_seconds ?? 0) * 1000)
 }
 
 export function balanceCardResetWindow(
@@ -30,7 +31,7 @@ export function balanceCardResetWindow(
     Math.min(remaining(card.daily_quota_usd, 0), card.weekly_quota_usd, monthlyRemaining) > 0
   ) {
     const resetDuration = weeklyResetDurationMs(card, nowMs)
-    if (resetDuration > 0 && expiresAtMs > nowMs + resetDuration) return 'weekly'
+    if (expiresAtMs > nowMs + resetDuration) return 'weekly'
   }
 
   const dailyRemaining = remaining(card.daily_quota_usd, card.daily_usage_usd)
@@ -52,5 +53,5 @@ export function balanceCardResetCostDays(
   nowMs = Date.now()
 ): number {
   if (window === 'daily') return 1
-  return Math.max(1, Math.ceil(weeklyResetDurationMs(card, nowMs) / DAY_MS))
+  return Math.max(0, Math.ceil(weeklyResetDurationMs(card, nowMs) / DAY_MS))
 }
