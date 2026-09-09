@@ -144,8 +144,8 @@ func TestDeductUsageBillingWallet_SplitsCardAndCashBalance(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "card_type", "validity_days", "daily_quota_usd", "daily_usage_usd", "daily_window_start",
 			"weekly_quota_usd", "weekly_usage_usd", "weekly_window_start", "monthly_quota_usd", "monthly_usage_usd",
-			"fallback_enabled", "auto_reset_enabled", "reset_count", "max_reset_count", "expires_at",
-		}).AddRow(int64(9), "month", 30, 10.0, 8.0, nil, 0.0, 0.0, nil, 0.0, 0.0, true, false, 0, 20, time.Now().Add(30*24*time.Hour)))
+			"fallback_enabled", "auto_reset_enabled", "reset_count", "max_reset_count", "expires_at", "weekly_daily_advance_seconds",
+		}).AddRow(int64(9), "month", 30, 10.0, 8.0, nil, 0.0, 0.0, nil, 0.0, 0.0, true, false, 0, 20, time.Now().Add(30*24*time.Hour), 0))
 	mock.ExpectExec(`(?s)UPDATE user_balance_cards\s+SET daily_window_start=\$2`).
 		WithArgs(int64(9), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -205,8 +205,8 @@ func TestDeductUsageBillingWallet_UnlimitedCardDoesNotExposeInfinity(t *testing.
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "card_type", "validity_days", "daily_quota_usd", "daily_usage_usd", "daily_window_start",
 			"weekly_quota_usd", "weekly_usage_usd", "weekly_window_start", "monthly_quota_usd", "monthly_usage_usd",
-			"fallback_enabled", "auto_reset_enabled", "reset_count", "max_reset_count", "expires_at",
-		}).AddRow(int64(9), "month", 30, 0.0, 8.0, nil, 0.0, 0.0, nil, 0.0, 0.0, true, false, 0, 20, time.Now().Add(30*24*time.Hour)))
+			"fallback_enabled", "auto_reset_enabled", "reset_count", "max_reset_count", "expires_at", "weekly_daily_advance_seconds",
+		}).AddRow(int64(9), "month", 30, 0.0, 8.0, nil, 0.0, 0.0, nil, 0.0, 0.0, true, false, 0, 20, time.Now().Add(30*24*time.Hour), 0))
 	mock.ExpectExec(`(?s)UPDATE user_balance_cards\s+SET daily_window_start=\$2`).
 		WithArgs(int64(9), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -267,9 +267,9 @@ func TestDeductUsageBillingWallet_AutoAdvancesExhaustedMonthCardWeek(t *testing.
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "card_type", "validity_days", "daily_quota_usd", "daily_usage_usd", "daily_window_start",
 			"weekly_quota_usd", "weekly_usage_usd", "weekly_window_start", "monthly_quota_usd", "monthly_usage_usd",
-			"fallback_enabled", "auto_reset_enabled", "reset_count", "max_reset_count", "expires_at",
+			"fallback_enabled", "auto_reset_enabled", "reset_count", "max_reset_count", "expires_at", "weekly_daily_advance_seconds",
 		}).AddRow(int64(9), "month", 30, 60.0, 40.0, today, 300.0, 300.0, weekStart,
-			1000.0, 300.0, true, true, 0, 20, expiresAt))
+			1000.0, 300.0, true, true, 0, 20, expiresAt, 0))
 	mock.ExpectExec(`(?s)UPDATE user_balance_cards SET\s+daily_usage_usd=0, daily_window_start=\$2,\s+weekly_usage_usd=0, weekly_window_start=\$3`).
 		WithArgs(int64(9), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
