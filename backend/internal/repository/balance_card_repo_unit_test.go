@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -108,6 +109,12 @@ func TestBalanceCardRedeemCardRollsBackCodeWhenIssuanceFails(t *testing.T) {
 }
 
 func TestBalanceCardResetDaily_AdvancesExhaustedMonthCardWeekByRemainingTerm(t *testing.T) {
+	for _, credit := range []int64{0, 86400, 4 * 86400} {
+		t.Run(fmt.Sprint(credit), func(t *testing.T) { testManualWeeklyResetCredit(t, credit) })
+	}
+}
+
+func testManualWeeklyResetCredit(t *testing.T, credit int64) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
@@ -117,7 +124,8 @@ func TestBalanceCardResetDaily_AdvancesExhaustedMonthCardWeekByRemainingTerm(t *
 	weekStart := now.Add(-5 * 24 * time.Hour)
 	startsAt := weekStart
 	expiresAt := now.Add(20 * 24 * time.Hour)
-	newExpiresAt := expiresAt.Add(-2 * 24 * time.Hour)
+	duration := max(time.Duration(0), 2*24*time.Hour-time.Duration(credit)*time.Second)
+	newExpiresAt := expiresAt.Add(-duration)
 	createdAt := startsAt
 
 	mock.ExpectBegin()
@@ -147,14 +155,16 @@ func TestBalanceCardResetDaily_AdvancesExhaustedMonthCardWeekByRemainingTerm(t *
 		WillReturnRows(sqlmock.NewRows([]string{
 			"status", "card_type", "daily_usage_usd", "daily_quota_usd", "weekly_quota_usd",
 			"weekly_usage_usd", "weekly_window_start", "monthly_quota_usd", "monthly_usage_usd",
-			"reset_count", "max_reset_count", "expires_at",
-		}).AddRow("active", "month", 40.0, 60.0, 300.0, 300.0, weekStart, 1000.0, 300.0, 0, 20, expiresAt))
+			"reset_count", "max_reset_count", "expires_at", "weekly_daily_advance_seconds",
+		}).AddRow("active", "month", 40.0, 60.0, 300.0, 300.0, weekStart, 1000.0, 300.0, 0, 20, expiresAt, credit))
 	mock.ExpectExec(`(?s)UPDATE user_balance_cards SET\s+daily_usage_usd=0, daily_window_start=\$2,\s+weekly_usage_usd=0, weekly_window_start=\$3`).
 		WithArgs(int64(9), sqlmock.AnyArg(), now, newExpiresAt, now).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(`(?s)UPDATE user_balance_cards SET\s+starts_at=starts_at \+ \(\$1 \* INTERVAL '1 second'\)`).
-		WithArgs(-172800.0, int64(42), int64(9), now, expiresAt).
-		WillReturnResult(sqlmock.NewResult(0, 0))
+	if duration > 0 {
+		mock.ExpectExec(`(?s)UPDATE user_balance_cards SET\s+starts_at=starts_at \+ \(\$1 \* INTERVAL '1 second'\)`).
+			WithArgs(-duration.Seconds(), int64(42), int64(9), now, expiresAt).
+			WillReturnResult(sqlmock.NewResult(0, 0))
+	}
 	mock.ExpectExec(`(?s)INSERT INTO balance_card_ledgers`).
 		WithArgs(int64(9), int64(42), "manual_reset", 0.0, 40.0, 0.0,
 			expiresAt, newExpiresAt, sqlmock.AnyArg(), sqlmock.AnyArg(), "week-reset-op", int64(42), "", sqlmock.AnyArg()).
@@ -167,10 +177,10 @@ func TestBalanceCardResetDaily_AdvancesExhaustedMonthCardWeekByRemainingTerm(t *
 			"starts_at", "expires_at", "status", "daily_window_start", "daily_usage_usd",
 			"weekly_window_start", "weekly_usage_usd", "monthly_usage_usd", "fallback_enabled",
 			"auto_reset_enabled", "reset_count", "assigned_by", "assigned_at", "activated_at",
-			"notes", "created_at", "updated_at",
+			"notes", "created_at", "updated_at", "weekly_daily_advance_seconds",
 		}).AddRow(int64(9), int64(42), "user@example.com", int64(1), "Monthly", "month", 30,
 			60.0, 300.0, 1000.0, 20, startsAt, newExpiresAt, "active", now, 0.0,
-			now, 0.0, 300.0, true, true, 1, int64(1), startsAt, startsAt, "", createdAt, now))
+			now, 0.0, 300.0, true, true, 1, int64(1), startsAt, startsAt, "", createdAt, now, 0))
 	mock.ExpectCommit()
 
 	repo := &balanceCardRepository{db: db}

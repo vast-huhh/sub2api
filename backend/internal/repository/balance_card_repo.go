@@ -117,7 +117,8 @@ const balanceCardColumns = `
 	c.weekly_window_start, c.weekly_usage_usd::double precision,
 	c.monthly_usage_usd::double precision,
 	c.fallback_enabled, c.auto_reset_enabled, c.reset_count, c.assigned_by,
-	c.assigned_at, c.activated_at, c.notes, c.created_at, c.updated_at`
+	c.assigned_at, c.activated_at, c.notes, c.created_at, c.updated_at,
+	c.weekly_daily_advance_seconds`
 
 func scanBalanceCard(row balanceCardRowScanner) (*service.UserBalanceCard, error) {
 	var c service.UserBalanceCard
@@ -129,6 +130,7 @@ func scanBalanceCard(row balanceCardRowScanner) (*service.UserBalanceCard, error
 		&c.WeeklyUsageUSD, &c.MonthlyUsageUSD, &c.FallbackEnabled,
 		&c.AutoResetEnabled, &c.ResetCount, &c.AssignedBy, &c.AssignedAt,
 		&c.ActivatedAt, &c.Notes, &c.CreatedAt, &c.UpdatedAt,
+		&c.WeeklyDailyAdvanceSeconds,
 	); err != nil {
 		return nil, err
 	}
@@ -233,7 +235,7 @@ func normalizeUserBalanceCardsTx(ctx context.Context, tx *sql.Tx, userID int64, 
 			elapsedWindows := int64(now.Sub(*weeklyWindowStart) / (7 * 24 * time.Hour))
 			weekStart = weeklyWindowStart.Add(time.Duration(elapsedWindows) * 7 * 24 * time.Hour)
 			if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
-				weekly_usage_usd=0, weekly_window_start=$2, updated_at=$3 WHERE id=$1`, activeID, weekStart, now); err != nil {
+				weekly_usage_usd=0, weekly_window_start=$2, weekly_daily_advance_seconds=0, updated_at=$3 WHERE id=$1`, activeID, weekStart, now); err != nil {
 				return err
 			}
 			if err := insertBalanceCardLedgerTx(ctx, tx, activeID, userID, "natural_reset", 0, 0, 0,
@@ -539,14 +541,14 @@ func (r *balanceCardRepository) GetWalletSnapshot(ctx context.Context, userID in
 		weekly_quota_usd::double precision, weekly_window_start,
 		weekly_usage_usd::double precision, monthly_quota_usd::double precision,
 		monthly_usage_usd::double precision,
-		fallback_enabled, auto_reset_enabled, reset_count, max_reset_count
+		fallback_enabled, auto_reset_enabled, reset_count, max_reset_count, weekly_daily_advance_seconds
 		FROM user_balance_cards WHERE user_id=$1 AND status='active'
 		AND starts_at <= $2 AND expires_at > $2 LIMIT 1`, userID, now).Scan(
 		&s.CardID, &s.UserID, &s.PlanName, &s.CardType, &s.ValidityDays, &s.ExpiresAt,
 		&s.DailyWindowStart, &s.DailyQuotaUSD, &s.DailyUsageUSD,
 		&s.WeeklyQuotaUSD, &s.WeeklyWindowStart, &s.WeeklyUsageUSD,
 		&s.MonthlyQuotaUSD, &s.MonthlyUsageUSD, &s.FallbackEnabled,
-		&s.AutoResetEnabled, &s.ResetCount, &s.MaxResetCount)
+		&s.AutoResetEnabled, &s.ResetCount, &s.MaxResetCount, &s.WeeklyDailyAdvanceSeconds)
 	if errors.Is(err, sql.ErrNoRows) {
 		if err := tx.Commit(); err != nil {
 			return nil, err
@@ -664,15 +666,16 @@ func (r *balanceCardRepository) ResetDaily(ctx context.Context, id, userID, acto
 	var usage, quota, weeklyQuota, weeklyUsage, monthlyQuota, monthlyUsage float64
 	var weeklyWindowStart *time.Time
 	var resetCount, maxReset int
+	var dailyAdvanceSeconds int64
 	var expiresAt time.Time
 	err = tx.QueryRowContext(ctx, `SELECT status, card_type, daily_usage_usd::double precision,
 		daily_quota_usd::double precision, weekly_quota_usd::double precision,
 		weekly_usage_usd::double precision, weekly_window_start,
 		monthly_quota_usd::double precision, monthly_usage_usd::double precision,
-		reset_count, max_reset_count, expires_at
+		reset_count, max_reset_count, expires_at, weekly_daily_advance_seconds
 		FROM user_balance_cards WHERE id=$1 FOR UPDATE`, id).
 		Scan(&status, &cardType, &usage, &quota, &weeklyQuota, &weeklyUsage,
-			&weeklyWindowStart, &monthlyQuota, &monthlyUsage, &resetCount, &maxReset, &expiresAt)
+			&weeklyWindowStart, &monthlyQuota, &monthlyUsage, &resetCount, &maxReset, &expiresAt, &dailyAdvanceSeconds)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +688,8 @@ func (r *balanceCardRepository) ResetDaily(ctx context.Context, id, userID, acto
 		CardType: cardType, DailyQuotaUSD: quota, DailyUsageUSD: usage, DailyWindowStart: &today,
 		WeeklyQuotaUSD: weeklyQuota, WeeklyWindowStart: weeklyWindowStart,
 		WeeklyUsageUSD: weeklyUsage, MonthlyQuotaUSD: monthlyQuota,
-		MonthlyUsageUSD: monthlyUsage,
+		MonthlyUsageUSD:           monthlyUsage,
+		WeeklyDailyAdvanceSeconds: dailyAdvanceSeconds,
 	}
 	resetWindow := resetState.PendingResetWindow(now)
 	if resetWindow == "" {
@@ -694,17 +698,20 @@ func (r *balanceCardRepository) ResetDaily(ctx context.Context, id, userID, acto
 	if resetCount >= maxReset {
 		return nil, service.ErrBalanceCardResetLimitExceeded
 	}
-	resetDuration := service.BalanceCardResetDuration(resetWindow, weeklyWindowStart, now)
+	resetDuration := service.BalanceCardResetDuration(resetWindow, weeklyWindowStart, now, dailyAdvanceSeconds)
 	newExpiresAt := expiresAt.Add(-resetDuration)
-	if resetDuration <= 0 || !newExpiresAt.After(now) {
+	if !newExpiresAt.After(now) {
 		return nil, service.ErrBalanceCardInsufficientTerm
 	}
 	metadata := map[string]any{"window": resetWindow, "weekly_usage": weeklyUsage, "monthly_usage": monthlyUsage}
+	metadata["weekly_daily_advance_seconds_before"] = dailyAdvanceSeconds
+	metadata["reset_duration_seconds"] = resetDuration.Seconds()
 	if resetWindow == service.BalanceCardResetWindowWeekly {
 		weekStart := now
 		if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
 			daily_usage_usd=0, daily_window_start=$2,
 			weekly_usage_usd=0, weekly_window_start=$3,
+			weekly_daily_advance_seconds=0,
 			expires_at=$4, reset_count=reset_count+1, updated_at=$5 WHERE id=$1`,
 			id, today, weekStart, newExpiresAt, now); err != nil {
 			return nil, err
@@ -714,6 +721,7 @@ func (r *balanceCardRepository) ResetDaily(ctx context.Context, id, userID, acto
 	} else {
 		if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards SET
 			daily_usage_usd=0, daily_window_start=$2,
+			weekly_daily_advance_seconds=weekly_daily_advance_seconds + CASE WHEN card_type='month' AND weekly_quota_usd>0 THEN 86400 ELSE 0 END,
 			expires_at=$3, reset_count=reset_count+1, updated_at=$4 WHERE id=$1`,
 			id, today, newExpiresAt, now); err != nil {
 			return nil, err
