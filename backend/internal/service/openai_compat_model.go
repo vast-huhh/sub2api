@@ -98,35 +98,64 @@ func splitOpenAICompatReasoningModel(model string) (normalizedModel string, reas
 		return trimmed, "", false
 	}
 
-	parts := strings.FieldsFunc(strings.ToLower(modelID), func(r rune) bool {
-		switch r {
-		case '-', '_', ' ':
-			return true
-		default:
-			return false
-		}
-	})
-	if len(parts) == 0 {
+	separator := strings.LastIndexAny(modelID, "-_ ")
+	if separator < 0 {
 		return trimmed, "", false
 	}
-
-	last := strings.NewReplacer("-", "", "_", "", " ", "").Replace(parts[len(parts)-1])
+	base := strings.TrimRight(modelID[:separator], "-_ ")
+	last := strings.ToLower(modelID[separator+1:])
+	// Accept extra-high/x-high and underscore variants as a single effort.
+	if last == "high" {
+		if extra := strings.LastIndexAny(base, "-_ "); extra >= 0 {
+			prefix := base[extra+1:]
+			if strings.EqualFold(prefix, "extra") || strings.EqualFold(prefix, "x") {
+				base = strings.TrimRight(base[:extra], "-_ ")
+				last = "xhigh"
+			}
+		}
+	}
 	switch last {
-	case "none", "minimal":
-	case "low", "medium", "high":
+	case "none", "minimal", "low", "medium", "high", "max":
 		reasoningEffort = last
 	case "xhigh", "extrahigh":
 		reasoningEffort = "xhigh"
 	default:
 		return trimmed, "", false
 	}
+	if !strings.HasPrefix(strings.ToLower(base), "gpt-") || len(base) <= len("gpt-") {
+		return trimmed, "", false
+	}
+	// codex-max is a model variant, not an effort suffix. Another suffix
+	// after that variant (codex-max-high) can still specify the effort.
+	if last == "max" && strings.HasSuffix(strings.ToLower(base), "-codex") {
+		return trimmed, "", false
+	}
 
-	return normalizeCodexModel(modelID), reasoningEffort, true
+	// Strip first. Never rely on the model catalog or fuzzy family matching
+	// to remove the suffix: new models must retain their own base model ID.
+	return normalizeOpenAICompatBaseModel(base), reasoningEffort, true
+}
+
+// normalizeOpenAICompatBaseModel applies explicit legacy aliases only. Fuzzy
+// Codex matching would turn an unlisted GPT-5.x model into an older model.
+func normalizeOpenAICompatBaseModel(model string) string {
+	canonical := canonicalizeOpenAIModelAliasSpelling(model)
+	if mapped := getNormalizedCodexModel(canonical); mapped != "" {
+		return mapped
+	}
+	switch canonical {
+	case "gpt-6":
+		return "gpt-6-astra"
+	case "gpt-5.6":
+		return "gpt-5.6-sol"
+	default:
+		return strings.TrimSpace(model)
+	}
 }
 
 func openAIReasoningEffortToClaudeOutputEffort(effort string) string {
 	switch strings.TrimSpace(effort) {
-	case "low", "medium", "high":
+	case "low", "medium", "high", "max":
 		return effort
 	case "xhigh":
 		return "max"

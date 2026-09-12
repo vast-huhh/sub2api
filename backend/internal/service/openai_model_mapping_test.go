@@ -124,6 +124,19 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 			expectedModel:  "gpt-5.6-sol",
 		},
 		{
+			name: "new model reasoning suffix resolves through base model mapping",
+			account: &Account{
+				Platform: PlatformOpenAI,
+				Credentials: map[string]any{
+					"model_mapping": map[string]any{
+						"gpt-5.9-future": "gpt-5.9-future",
+					},
+				},
+			},
+			requestedModel: "gpt-5.9-future-xhigh",
+			expectedModel:  "gpt-5.9-future",
+		},
+		{
 			name: "exact reasoning suffix mapping wins over normalized fallback",
 			account: &Account{
 				Platform: PlatformOpenAI,

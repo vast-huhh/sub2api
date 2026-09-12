@@ -706,6 +706,14 @@ go generate ./cmd/server
 
 ---
 
+## Chat Completions 模型名中的思考强度
+
+`/v1/chat/completions` 支持在 `gpt-*` 模型名末尾添加 `-none`、`-minimal`、`-low`、`-medium`、`-high`、`-xhigh` 或 `-max`。例如 `gpt-6-astra-xhigh` 会发送为 `model: "gpt-6-astra"` 和 `reasoning_effort: "xhigh"`；转发到 Responses 上游时使用 `reasoning.effort`。
+
+后缀拆分不依赖内置模型名单，新模型和日期快照也适用。`extra-high`、`extra_high`、`extrahigh` 视为 `xhigh`。请求中显式填写的思考强度优先；`codex-max` 作为模型变体保留，不将其中的 `max` 当作强度。未知后缀和拼写错误不会自动纠正。
+
+拆分后仍需上游支持该模型及强度，并满足已有分组策略和模型权限。不能通过添加后缀让上游支持不存在的模型。
+
 ## OpenAI 图片模型
 
 支持 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。`quality` 支持 `xhigh`、`max`、`auto`，合法自定义尺寸和图片 usage 明细保持透传。

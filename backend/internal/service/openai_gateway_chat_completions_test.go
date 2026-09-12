@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -251,26 +252,55 @@ func TestForwardAsChatCompletions_DerivesReasoningEffortFromModelSuffix(t *testi
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := []byte(`{"model":"gpt-5.6-sol-xhigh","messages":[{"role":"user","content":"hello"}],"stream":false}`)
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
-			c.Request.Header.Set("Content-Type", "application/json")
+		for _, modelCase := range []struct {
+			model          string
+			upstreamModel  string
+			explicitEffort string
+			wantEffort     string
+		}{
+			{model: "gpt-5.6-sol-xhigh", upstreamModel: "gpt-5.6-sol", wantEffort: "xhigh"},
+			{model: "gpt-6-astra-xhigh", upstreamModel: "gpt-6-astra", wantEffort: "xhigh"},
+			{model: "gpt-6-xhigh", upstreamModel: "gpt-6-astra", wantEffort: "xhigh"},
+			{model: "gpt-7-future-xhigh", upstreamModel: "gpt-7-future", wantEffort: "xhigh"},
+			{model: "gpt-5.9-future-high", upstreamModel: "gpt-5.9-future", wantEffort: "high"},
+			{model: "gpt-5.9-future", upstreamModel: "gpt-5.9-future", explicitEffort: "xhigh", wantEffort: "xhigh"},
+			{model: "gpt-7-future-2027-01-01-extra-high", upstreamModel: "gpt-7-future-2027-01-01", wantEffort: "xhigh"},
+			{model: "gpt-7-future-none", upstreamModel: "gpt-7-future", wantEffort: "none"},
+			{model: "gpt-7-future-minimal", upstreamModel: "gpt-7-future", wantEffort: "minimal"},
+			{model: "gpt-7-future-max", upstreamModel: "gpt-7-future", wantEffort: "max"},
+			{model: "gpt-7-future-xhigh", upstreamModel: "gpt-7-future", explicitEffort: "none", wantEffort: "none"},
+			{model: "gpt-6-astra-xhigh", upstreamModel: "gpt-6-astra", explicitEffort: "low", wantEffort: "low"},
+		} {
+			t.Run(tt.name+"/"+modelCase.model+"/"+modelCase.explicitEffort, func(t *testing.T) {
+				payload := map[string]any{
+					"model":    modelCase.model,
+					"messages": []map[string]string{{"role": "user", "content": "hello"}},
+					"stream":   false,
+				}
+				if modelCase.explicitEffort != "" {
+					payload["reasoning_effort"] = modelCase.explicitEffort
+				}
+				body, marshalErr := json.Marshal(payload)
+				require.NoError(t, marshalErr)
+				rec := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(rec)
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+				c.Request.Header.Set("Content-Type", "application/json")
 
-			upstream := &httpUpstreamRecorder{resp: &http.Response{
-				StatusCode: http.StatusBadRequest,
-				Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_chat_reasoning_suffix"}},
-				Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"stop after request capture"}}`)),
-			}}
-			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+				upstream := &httpUpstreamRecorder{resp: &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_chat_reasoning_suffix"}},
+					Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"stop after request capture"}}`)),
+				}}
+				svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 
-			result, err := svc.ForwardAsChatCompletions(context.Background(), c, tt.account, body, "", "")
-			require.Error(t, err)
-			require.Nil(t, result)
-			require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(upstream.lastBody, "model").String())
-			require.Equal(t, "xhigh", gjson.GetBytes(upstream.lastBody, tt.effortPath).String())
-		})
+				result, err := svc.ForwardAsChatCompletions(context.Background(), c, tt.account, body, "", "")
+				require.Error(t, err)
+				require.Nil(t, result)
+				require.Equal(t, modelCase.upstreamModel, gjson.GetBytes(upstream.lastBody, "model").String())
+				require.Equal(t, modelCase.wantEffort, gjson.GetBytes(upstream.lastBody, tt.effortPath).String())
+			})
+		}
 	}
 }
 
