@@ -259,6 +259,7 @@ func TestForwardAsChatCompletions_DerivesReasoningEffortFromModelSuffix(t *testi
 			wantEffort     string
 		}{
 			{model: "gpt-5.6-sol-xhigh", upstreamModel: "gpt-5.6-sol", wantEffort: "xhigh"},
+			{model: "gpt-5.5-codex-high", upstreamModel: "gpt-5.5", wantEffort: "high"},
 			{model: "gpt-6-astra-xhigh", upstreamModel: "gpt-6-astra", wantEffort: "xhigh"},
 			{model: "gpt-6-xhigh", upstreamModel: "gpt-6-astra", wantEffort: "xhigh"},
 			{model: "gpt-7-future-xhigh", upstreamModel: "gpt-7-future", wantEffort: "xhigh"},
