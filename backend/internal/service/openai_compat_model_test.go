@@ -77,6 +77,12 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 		input string
 		want  string
 	}{
+		{name: "astra reasoning alias strips xhigh", input: "gpt-6-astra-xhigh", want: "gpt-6-astra"},
+		{name: "astra short alias strips xhigh", input: "gpt-6-xhigh", want: "gpt-6-astra"},
+		{name: "astra provider alias strips high", input: "openai/GPT-6-ASTRA-HIGH", want: "gpt-6-astra"},
+		{name: "unknown astra suffix preserved", input: "gpt-6-astra-custom", want: "gpt-6-astra-custom"},
+		{name: "misspelled effort preserved", input: "gpt-6-astra-xihgh", want: "gpt-6-astra-xihgh"},
+		{name: "new gpt6 family strips effort", input: "gpt-6-custom-xhigh", want: "gpt-6-custom"},
 		{name: "gpt reasoning alias strips xhigh", input: "gpt-5.4-xhigh", want: "gpt-5.4"},
 		{name: "gpt reasoning alias strips none", input: "gpt-5.4-none", want: "gpt-5.4"},
 		{name: "codex max model stays intact", input: "gpt-5.1-codex-max", want: "gpt-5.1-codex-max"},
@@ -87,6 +93,39 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, NormalizeOpenAICompatRequestedModel(tt.input))
 		})
+	}
+}
+
+func TestSplitOpenAICompatReasoningModelIndependentOfCatalog(t *testing.T) {
+	t.Parallel()
+	for _, base := range []string{"gpt-7-future", "gpt-5.9-future", "gpt-6-new-family", "gpt-7-future-2027-01-01"} {
+		for _, effort := range []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"} {
+			t.Run(base+"/"+effort, func(t *testing.T) {
+				model, gotEffort, ok := splitOpenAICompatReasoningModel(base + "-" + effort)
+				require.True(t, ok)
+				require.Equal(t, base, model)
+				require.Equal(t, effort, gotEffort)
+				body := []byte(fmt.Sprintf(`{"model":%q,"messages":[]}`, base+"-"+effort))
+				updated, changed := ApplyOpenAIChatCompletionsReasoningSuffix(body)
+				require.True(t, changed)
+				require.Equal(t, effort, gjson.GetBytes(updated, "reasoning_effort").String())
+				again, changed := ApplyOpenAIChatCompletionsReasoningSuffix(updated)
+				require.False(t, changed)
+				require.Equal(t, updated, again)
+			})
+		}
+	}
+	for _, suffix := range []string{"-extrahigh", "-extra-high", "_extra_high", " extra high", "-x-high", "_x_high", "_XHIGH"} {
+		model, effort, ok := splitOpenAICompatReasoningModel("openai/gpt-7-future" + suffix)
+		require.True(t, ok)
+		require.Equal(t, "gpt-7-future", model)
+		require.Equal(t, "xhigh", effort)
+	}
+	for _, model := range []string{"gpt-7-future", "gpt-7-future-xihgh", "gpt-7-future-xhigh-", "gpt-high", "gpt--high", "gpt-7-codex-max", "gpt-5.1-codex-max", "claude-future-high", "minimax-future-high"} {
+		got, effort, ok := splitOpenAICompatReasoningModel(model)
+		require.False(t, ok, model)
+		require.Equal(t, model, got)
+		require.Empty(t, effort)
 	}
 }
 
