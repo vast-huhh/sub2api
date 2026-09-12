@@ -77,6 +77,7 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 		input string
 		want  string
 	}{
+		{name: "legacy codex alias strips high", input: "gpt-5.5-codex-high", want: "gpt-5.5"},
 		{name: "astra reasoning alias strips xhigh", input: "gpt-6-astra-xhigh", want: "gpt-6-astra"},
 		{name: "astra short alias strips xhigh", input: "gpt-6-xhigh", want: "gpt-6-astra"},
 		{name: "astra provider alias strips high", input: "openai/GPT-6-ASTRA-HIGH", want: "gpt-6-astra"},
@@ -98,7 +99,7 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 
 func TestSplitOpenAICompatReasoningModelIndependentOfCatalog(t *testing.T) {
 	t.Parallel()
-	for _, base := range []string{"gpt-7-future", "gpt-5.9-future", "gpt-6-new-family", "gpt-7-future-2027-01-01"} {
+	for _, base := range []string{"gpt-7-future", "gpt-5.9-future", "gpt-6-new-family", "gpt-7-future-2027-01-01", "gpt-5.5-future"} {
 		for _, effort := range []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"} {
 			t.Run(base+"/"+effort, func(t *testing.T) {
 				model, gotEffort, ok := splitOpenAICompatReasoningModel(base + "-" + effort)
