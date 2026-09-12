@@ -26,7 +26,13 @@ func resolveOpenAIForwardModel(account *Account, requestedModel, messagesDispatc
 // scoped to the compatibility endpoint avoids changing raw /responses model
 // passthrough semantics for API key accounts.
 func normalizeOpenAIChatCompletionsModelForUpstream(account *Account, model string) string {
-	return normalizeOpenAIModelForUpstream(account, NormalizeOpenAICompatRequestedModel(model))
+	if normalized, _, ok := splitOpenAICompatReasoningModel(model); ok {
+		return normalized
+	}
+	if account != nil && account.Type == AccountTypeOAuth {
+		return normalizeOpenAICompatBaseModel(model)
+	}
+	return strings.TrimSpace(model)
 }
 
 // openAIOAuthForeignModelPrefixes 列出明确属于其他厂商家族的模型名前缀。
