@@ -148,6 +148,8 @@ func normalizeOpenAICompatBaseModel(model string) string {
 		return "gpt-6-astra"
 	case "gpt-5.6":
 		return "gpt-5.6-sol"
+	case "gpt-5.5-codex":
+		return "gpt-5.5"
 	default:
 		return strings.TrimSpace(model)
 	}
