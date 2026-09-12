@@ -69,6 +69,66 @@ func TestOpenAICheckChannelPricingRestrictionAllowsReasoningSuffixViaBaseModel(t
 	require.False(t, svc.checkChannelPricingRestriction(context.Background(), &groupID, "gpt-5.6-sol-xhigh"))
 }
 
+func TestOpenAIResolveChannelMappingNewModelReasoningSuffixFallsBackToBaseModel(t *testing.T) {
+	t.Parallel()
+
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:       1,
+		Status:   StatusActive,
+		GroupIDs: []int64{10},
+		ModelMapping: map[string]map[string]string{
+			PlatformOpenAI: {
+				"gpt-7-future": "gpt-7-future-upstream",
+			},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+
+	result := svc.ResolveChannelMapping(context.Background(), 10, "gpt-7-future-xhigh")
+	require.True(t, result.Mapped)
+	require.Equal(t, "gpt-7-future-upstream", result.MappedModel)
+}
+
+func TestOpenAIResolveChannelMappingNewModelReasoningSuffixExactMappingWins(t *testing.T) {
+	t.Parallel()
+
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:       1,
+		Status:   StatusActive,
+		GroupIDs: []int64{10},
+		ModelMapping: map[string]map[string]string{
+			PlatformOpenAI: {
+				"gpt-7-future":       "gpt-7-future-upstream",
+				"gpt-7-future-xhigh": "custom-xhigh-upstream",
+			},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+
+	result := svc.ResolveChannelMapping(context.Background(), 10, "gpt-7-future-xhigh")
+	require.True(t, result.Mapped)
+	require.Equal(t, "custom-xhigh-upstream", result.MappedModel)
+}
+
+func TestOpenAICheckChannelPricingRestrictionAllowsNewModelReasoningSuffixViaBaseModel(t *testing.T) {
+	t.Parallel()
+
+	channelSvc := newTestChannelService(makeStandardRepo(Channel{
+		ID:                 1,
+		Status:             StatusActive,
+		GroupIDs:           []int64{10},
+		RestrictModels:     true,
+		BillingModelSource: BillingModelSourceRequested,
+		ModelPricing: []ChannelModelPricing{
+			{Platform: PlatformOpenAI, Models: []string{"gpt-7-future"}},
+		},
+	}, map[int64]string{10: PlatformOpenAI}))
+	svc := &OpenAIGatewayService{channelService: channelSvc}
+	groupID := int64(10)
+
+	require.False(t, svc.checkChannelPricingRestriction(context.Background(), &groupID, "gpt-7-future-xhigh"))
+}
+
 func TestOpenAISelectAccountForModelWithExclusions_ChannelMappedRestrictionRejectsEarly(t *testing.T) {
 	t.Parallel()
 
