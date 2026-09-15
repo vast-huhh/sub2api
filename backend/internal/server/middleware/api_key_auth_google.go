@@ -201,8 +201,15 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			c.Set(string(ContextKeySubscription), subscription)
 		} else {
 			if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
-				abortWithGoogleError(c, 403, "Insufficient account balance")
-				return
+				usable, err := apiKeyService.HasUsableBalanceCard(c.Request.Context(), apiKey.User.ID)
+				if err != nil {
+					abortWithGoogleError(c, 503, "Billing service is temporarily unavailable")
+					return
+				}
+				if !usable {
+					abortWithGoogleError(c, 403, "Insufficient account balance")
+					return
+				}
 			}
 		}
 
