@@ -20,7 +20,7 @@ func TestBalanceCardCredit_AutoResetFourWeeks(t *testing.T) {
 	now := timezone.Now()
 	var userID, keyID, cardID int64
 	require.NoError(t, tx.QueryRowContext(ctx, `INSERT INTO users(email,password_hash,balance)
-		VALUES ('card-credit-test@example.invalid','test',100) RETURNING id`).Scan(&userID))
+		VALUES ('card-credit-test@example.invalid','test',0) RETURNING id`).Scan(&userID))
 	require.NoError(t, tx.QueryRowContext(ctx, `INSERT INTO api_keys(user_id,key,name)
 		VALUES ($1,'card-credit-test-key','test') RETURNING id`, userID).Scan(&keyID))
 	require.NoError(t, tx.QueryRowContext(ctx, `INSERT INTO user_balance_cards(
@@ -47,7 +47,7 @@ func TestBalanceCardCredit_AutoResetFourWeeks(t *testing.T) {
 	require.InDelta(t, 5*24*time.Hour.Seconds(), card.ExpiresAt.Sub(now).Seconds(), 10)
 	var cash, total float64
 	require.NoError(t, tx.QueryRowContext(ctx, `SELECT balance FROM users WHERE id=$1`, userID).Scan(&cash))
-	require.Equal(t, 100.0, cash)
+	require.Zero(t, cash, "a zero-cash user must be able to consume the entire card without cash deductions")
 	require.NoError(t, tx.QueryRowContext(ctx, `SELECT sum(amount_usd) FROM balance_card_ledgers
 		WHERE user_balance_card_id=$1 AND event_type='usage'`, cardID).Scan(&total))
 	require.Equal(t, 200.0, total)
