@@ -80,6 +80,7 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T
 		User: &User{ID: 1},
 	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{
 		NewBalance:         &newBalance,
+		CashBalanceCost:    0.75,
 		BalanceOverdrafted: true,
 	})
 
@@ -102,7 +103,7 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesWhenBalanceFallsBelowReserve(
 	syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
 		Cost: &CostBreakdown{ActualCost: 0.495},
 		User: &User{ID: 1},
-	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance})
+	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance, CashBalanceCost: 0.495})
 
 	require.Equal(t, int64(1), cache.invalidateCalls.Load())
 	require.Equal(t, int64(0), cache.deductCalls.Load())
@@ -119,10 +120,43 @@ func TestSyncBalanceCacheAfterDeduction_QueuesDeductWhenBalanceStillEligible(t *
 	syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
 		Cost: &CostBreakdown{ActualCost: 0.25},
 		User: &User{ID: 1},
-	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance})
+	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance, CashBalanceCost: 0.25})
 
 	require.Equal(t, int64(0), cache.invalidateCalls.Load())
 	require.Eventually(t, func() bool {
 		return cache.deductCalls.Load() == 1
 	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func TestResolvedCashBalanceCost_CardPayments(t *testing.T) {
+	cardID := int64(42)
+	newBalance := 0.0
+	p := &postUsageBillingParams{Cost: &CostBreakdown{ActualCost: 1}}
+	for _, tt := range []struct {
+		name   string
+		result *UsageBillingApplyResult
+		want   float64
+	}{
+		{"card_only", &UsageBillingApplyResult{BalanceCardID: &cardID, BalanceCardCost: 1}, 0},
+		{"mixed_payment", &UsageBillingApplyResult{BalanceCardID: &cardID, BalanceCardCost: 0.75, CashBalanceCost: 0.25, NewBalance: &newBalance}, 0.25},
+		{"cash_only", &UsageBillingApplyResult{CashBalanceCost: 1, NewBalance: &newBalance}, 1},
+		{"legacy_fallback", nil, 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, resolvedCashBalanceCost(p, tt.result))
+		})
+	}
+}
+
+func TestSyncBalanceCacheAfterDeduction_CardOnlyLeavesCashUntouched(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 0}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil)
+	cardID := int64(42)
+	syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
+		Cost: &CostBreakdown{ActualCost: 1},
+		User: &User{ID: 1},
+	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{BalanceCardID: &cardID, BalanceCardCost: 1})
+	svc.Stop()
+	require.Zero(t, cache.invalidateCalls.Load())
+	require.Zero(t, cache.deductCalls.Load())
 }
