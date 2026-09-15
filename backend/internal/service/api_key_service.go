@@ -282,7 +282,24 @@ type RateLimitCacheInvalidator interface {
 	InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error
 }
 
+// BalanceCardEligibilityChecker reads the live wallet, not the API key auth cache.
+type BalanceCardEligibilityChecker interface {
+	HasUsableBalanceCard(ctx context.Context, userID int64) (bool, error)
+}
+
+func (s *APIKeyService) SetBalanceCardEligibilityChecker(checker BalanceCardEligibilityChecker) {
+	s.balanceCardEligibility = checker
+}
+
+func (s *APIKeyService) HasUsableBalanceCard(ctx context.Context, userID int64) (bool, error) {
+	if s == nil || s.balanceCardEligibility == nil {
+		return false, nil
+	}
+	return s.balanceCardEligibility.HasUsableBalanceCard(ctx, userID)
+}
+
 type APIKeyService struct {
+	balanceCardEligibility    BalanceCardEligibilityChecker
 	apiKeyRepo                APIKeyRepository
 	userRepo                  UserRepository
 	groupRepo                 GroupRepository

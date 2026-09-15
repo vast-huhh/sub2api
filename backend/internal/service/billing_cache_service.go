@@ -889,6 +889,21 @@ func (s *BillingCacheService) balanceBelowEligibilityThreshold(balance float64) 
 	return minimumReserve > 0 && balance < minimumReserve
 }
 
+// HasUsableBalanceCard is the auth-layer exception for exhausted cash balances.
+// It does not consume quota, perform resets, or increment request rate limits.
+func (s *BillingCacheService) HasUsableBalanceCard(ctx context.Context, userID int64) (bool, error) {
+	card, err := s.getBalanceCardSnapshot(ctx, userID)
+	if err != nil {
+		return false, ErrBillingServiceUnavailable.WithCause(err)
+	}
+	return card.usableForRequest(timezone.Now()), nil
+}
+
+func (card *BalanceCardWalletSnapshot) usableForRequest(now time.Time) bool {
+	return card != nil && card.ExpiresAt.After(now) &&
+		(card.AvailableRemaining(now) > 0 || (card.AutoResetEnabled && card.CanAdvanceReset(now)))
+}
+
 // checkBalanceEligibility 检查余额模式资格
 func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64) error {
 	card, err := s.getBalanceCardSnapshot(ctx, userID)
@@ -902,7 +917,7 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	if card != nil {
 		now := timezone.Now()
 		if card.ExpiresAt.After(now) {
-			if card.AvailableRemaining(now) > 0 || (card.AutoResetEnabled && card.CanAdvanceReset(now)) {
+			if card.usableForRequest(now) {
 				if s.circuitBreaker != nil {
 					s.circuitBreaker.OnSuccess()
 				}
