@@ -64,6 +64,14 @@ describe('AppSidebar header styles', () => {
 })
 
 describe('AppSidebar subscription feature flag', () => {
+  it('keeps custom balance cards independent of subscription visibility', () => {
+    for (const path of ['/balance-cards', '/admin/balance-cards']) {
+      const entry = componentSource.split('\n').find(line => line.includes(`path: '${path}'`))
+      expect(entry).toBeDefined()
+      expect(entry).not.toContain('featureFlag: flagSubscription')
+    }
+  })
+
   it('gates the My Subscriptions entry behind the subscription public-settings flag', () => {
     expect(componentSource).toContain('const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)')
     expect(componentSource).toMatch(/path: '\/subscriptions'[^\n]*featureFlag: flagSubscription/)
