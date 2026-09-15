@@ -132,6 +132,27 @@ func TestRunTestBackground_ShadowPATArithmeticPrompt(t *testing.T) {
 	require.Regexp(t, `^[1-9][+*/-][1-9]=\?$`, gjson.GetBytes(upstream.lastBody, "input.0.content.0.text").String())
 }
 
+func TestRunTestBackground_OpenCodeArithmeticPrompt(t *testing.T) {
+	for _, tc := range []struct {
+		model, path string
+		response    func() *http.Response
+	}{
+		{"deepseek-v4-flash", "messages.0.content", adaptiveCNChatTestResponse},
+		{"grok-4.6", "input.0.content.0.text", adaptiveCNResponsesTestResponse},
+		{"minimax-m3", "messages.0.content.0.text", adaptiveCNAnthropicTestResponse},
+	} {
+		t.Run(tc.model, func(t *testing.T) {
+			account := openCodeGoTestAccount(401)
+			svc, upstream := adaptiveCNAccountTestService(account, tc.response())
+			result, err := svc.RunTestBackground(context.Background(), account.ID, tc.model)
+			require.NoError(t, err)
+			require.Equal(t, "success", result.Status, result.ErrorMessage)
+			require.Len(t, upstream.requests, 1)
+			require.Regexp(t, `^[1-9][+*/-][1-9]=\?$`, gjson.GetBytes(upstream.lastBody, tc.path).String())
+		})
+	}
+}
+
 func TestRunTestBackground_AdaptiveUsesOnePrompt(t *testing.T) {
 	account := adaptiveCNAccountTestAccount(1, PlatformDeepseek)
 	svc, upstream := adaptiveCNAccountTestService(account,
