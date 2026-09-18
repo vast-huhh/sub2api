@@ -38,6 +38,7 @@ const messages: Record<string, string> = {
 	'usage.sentUpstreamModel': 'Sent upstream model',
 	'usage.upstreamResponseModel': 'Upstream response model',
 	'usage.upstreamModelMismatch': 'Upstream model mismatch',
+  'usage.codexTurnStateLength': 'Turn State Length (B)',
 	'common.yes': 'Yes',
 	'common.no': 'No',
 }
@@ -511,6 +512,12 @@ describe('admin UsageView request ID column visibility', () => {
     )
 
     await wrapper.get('button[title="admin.users.columnSettings"]').trigger('click')
+    const effortToggle = wrapper.findAll('button').find((button) => button.text() === 'usage.reasoningEffort')
+    expect(effortToggle).toBeDefined()
+    await effortToggle!.trigger('click')
+    const keys = usageTable.props('columns').map((column: { key: string }) => column.key)
+    expect(keys[keys.indexOf('reasoning_effort') + 1]).toBe('codex_turn_state_length')
+    expect(keys[keys.indexOf('codex_turn_state_length') + 1]).toBe('codex_turn_state')
     const requestIdToggle = wrapper.findAll('button').find((button) => button.text() === 'Request ID')
     expect(requestIdToggle).toBeDefined()
     await requestIdToggle!.trigger('click')
@@ -748,6 +755,7 @@ describe('admin UsageView model audit export', () => {
 				upstream_model: 'gpt-5.5',
 				upstream_response_model: 'gpt-5.4',
 				upstream_model_mismatch: true,
+				codex_turn_state_length: 8192,
 				request_type: 'sync',
 				input_tokens: 1,
 				output_tokens: 1,
@@ -797,6 +805,8 @@ describe('admin UsageView model audit export', () => {
 		])
 		const row = sheetAddAoa.mock.calls[0][1][0]
 		expect(row.slice(4, 8)).toEqual(['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.4', 'Yes'])
+		expect(headers[10]).toBe('Turn State Length (B)')
+		expect(row[10]).toBe(8192)
 		expect(saveAs).toHaveBeenCalledTimes(1)
 	})
 })

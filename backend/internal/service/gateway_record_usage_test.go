@@ -825,3 +825,26 @@ func TestGatewayServiceRecordUsage_FastSpeedHonouredKeepsPremium(t *testing.T) {
 	require.NoError(t, err)
 	require.InDelta(t, fastCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
+
+func TestGatewayServiceRecordUsage_PersistsCodexTurnStateLength(t *testing.T) {
+	for _, length := range []int{0, 8192} {
+		repo := &openAIRecordUsageLogRepoStub{inserted: true}
+		svc := newGatewayRecordUsageServiceForTest(repo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+		state := strings.Repeat("x", length)
+		ctx := context.WithValue(context.Background(), ctxkey.CodexTurnStateLength, length)
+		ctx = context.WithValue(ctx, ctxkey.CodexTurnState, state)
+		err := svc.RecordUsage(ctx, &RecordUsageInput{
+			Result: &ForwardResult{RequestID: "resp_turn_state", Model: "claude-sonnet-4", Usage: ClaudeUsage{InputTokens: 20, OutputTokens: 10}},
+			APIKey: &APIKey{ID: 10}, User: &User{ID: 20}, Account: &Account{ID: 30},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, repo.lastLog)
+		require.NotNil(t, repo.lastLog.CodexTurnStateLength)
+		require.Equal(t, length, *repo.lastLog.CodexTurnStateLength)
+		if state == "" {
+			require.Nil(t, repo.lastLog.CodexTurnState)
+		} else {
+			require.Equal(t, &state, repo.lastLog.CodexTurnState)
+		}
+	}
+}

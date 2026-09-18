@@ -139,6 +139,11 @@ type UsageLog struct {
 	// RequestedReasoningEffort is the client-requested effort before mapping.
 	// Nil means historical rows, or that no explicit/suffix-derived effort was observed.
 	RequestedReasoningEffort *string
+	// CodexTurnStateLength is the inbound X-Codex-Turn-State byte count.
+	// Nil means not captured; zero means the request had no header value.
+	CodexTurnStateLength *int
+	// CodexTurnState preserves the full inbound value, exposed only to admins.
+	CodexTurnState *string
 	// InboundEndpoint is the client-facing API endpoint path, e.g. /v1/chat/completions.
 	InboundEndpoint *string
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.
