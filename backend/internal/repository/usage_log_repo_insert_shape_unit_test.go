@@ -172,7 +172,7 @@ func TestUsageLogCodexTurnStateLengthPersistence(t *testing.T) {
 		batch, _ := buildUsageLogBatchInsertQuery([]string{key}, map[string]usageLogInsertPrepared{key: prepared})
 		bestEffort, _ := buildUsageLogBestEffortInsertQuery([]usageLogInsertPrepared{prepared})
 		for _, query := range []string{batch, bestEffort} {
-			require.GreaterOrEqual(t, strings.Count(query, "codex_turn_state_length"), 3)
+			require.GreaterOrEqual(t, strings.Count(query, "response_codex_turn_state_length"), 3)
 		}
 
 		values := anySliceToDriverValues(append([]any{int64(1)}, prepared.args...))
