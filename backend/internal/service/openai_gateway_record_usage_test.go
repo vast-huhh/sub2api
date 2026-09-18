@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -3254,35 +3256,68 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_PersistsCodexTurnStateLength(t *testing.T) {
-	for _, length := range []int{-1, 0, 8192} {
-		repo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(repo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-		ctx := context.Background()
-		state := ""
-		if length > 0 {
-			state = " " + strings.Repeat("x", length-2) + " "
+func TestOpenAIGatewayServiceRecordUsage_PersistsResponseCodexTurnState(t *testing.T) {
+	for _, ws := range []bool{false, true} {
+		for _, length := range []int{-1, 0, 8192} {
+			repo := &openAIRecordUsageLogRepoStub{inserted: true}
+			svc := newOpenAIRecordUsageServiceForTest(repo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+			// Old inbound context must never override or fill missing response state.
+			ctx := context.WithValue(context.Background(), ctxkey.Key("ctx_codex_turn_state"), "inbound-wrong-state")
+			ctx = context.WithValue(ctx, ctxkey.Key("ctx_codex_turn_state_length"), 19)
+			state := ""
+			var headers http.Header
+			if length >= 0 {
+				headers = make(http.Header)
+			}
+			if length > 0 {
+				state = " " + strings.Repeat("x", length-2) + " "
+				headers.Set("x-codex-turn-state", state)
+			}
+			result := &OpenAIForwardResult{RequestID: "resp_turn_state", Model: "gpt-5.4", Usage: OpenAIUsage{InputTokens: 20, OutputTokens: 10}, OpenAIWSMode: ws}
+			if ws {
+				result.ResponseHeaders = headers
+			} else {
+				result.UpstreamHeaders = headers
+			}
+			err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
+				Result: result, APIKey: &APIKey{ID: 10}, User: &User{ID: 20}, Account: &Account{ID: 30},
+			})
+			require.NoError(t, err)
+			require.NotNil(t, repo.lastLog)
+			if state == "" {
+				require.Nil(t, repo.lastLog.CodexTurnState)
+			} else {
+				require.Equal(t, &state, repo.lastLog.CodexTurnState)
+			}
+			if length < 0 {
+				require.Nil(t, repo.lastLog.CodexTurnStateLength)
+			} else {
+				require.Equal(t, &length, repo.lastLog.CodexTurnStateLength)
+			}
 		}
-		if length >= 0 {
-			ctx = context.WithValue(ctx, ctxkey.CodexTurnState, state)
-			ctx = context.WithValue(ctx, ctxkey.CodexTurnStateLength, length)
+	}
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ResponseStateDoesNotLeakAcrossTurns(t *testing.T) {
+	repo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(repo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	// Reused connection repeats its handshake state; reconnect switches to the
+	// new connection response, including a missing header on the new connection.
+	for i, state := range []string{"handshake-A", "handshake-A", "handshake-B", ""} {
+		headers := make(http.Header)
+		if state != "" {
+			headers.Set("X-Codex-Turn-State", state)
 		}
-		err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
-			Result: &OpenAIForwardResult{RequestID: "resp_turn_state", Model: "gpt-5.4", Usage: OpenAIUsage{InputTokens: 20, OutputTokens: 10}},
+		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+			Result: &OpenAIForwardResult{RequestID: fmt.Sprintf("turn-%d", i), Model: "gpt-5.4", OpenAIWSMode: true, ResponseHeaders: headers, Usage: OpenAIUsage{InputTokens: 20, OutputTokens: 10}},
 			APIKey: &APIKey{ID: 10}, User: &User{ID: 20}, Account: &Account{ID: 30},
 		})
 		require.NoError(t, err)
-		require.NotNil(t, repo.lastLog)
+		require.Equal(t, len(state), *repo.lastLog.CodexTurnStateLength)
 		if state == "" {
 			require.Nil(t, repo.lastLog.CodexTurnState)
 		} else {
-			require.Equal(t, &state, repo.lastLog.CodexTurnState)
-		}
-		if length < 0 {
-			require.Nil(t, repo.lastLog.CodexTurnStateLength)
-		} else {
-			require.NotNil(t, repo.lastLog.CodexTurnStateLength)
-			require.Equal(t, length, *repo.lastLog.CodexTurnStateLength)
+			require.Equal(t, state, *repo.lastLog.CodexTurnState)
 		}
 	}
 }

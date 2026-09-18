@@ -676,7 +676,7 @@ type UsageLog struct {
 type AdminUsageLog struct {
 	UsageLog
 
-	// Inbound X-Codex-Turn-State value length in bytes; nil for uncaptured rows.
+	// Upstream response X-Codex-Turn-State byte length; nil for uncaptured rows.
 	CodexTurnStateLength *int    `json:"codex_turn_state_length"`
 	CodexTurnState       *string `json:"codex_turn_state"`
 

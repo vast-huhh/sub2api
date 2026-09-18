@@ -85,8 +85,8 @@ var usageLogInsertArgTypes = [...]string{
 	"text",        // billing_tier
 	"text",        // billing_mode
 	"numeric",     // account_stats_cost
-	"text",        // codex_turn_state
-	"integer",     // codex_turn_state_length
+	"text",        // response_codex_turn_state
+	"integer",     // response_codex_turn_state_length
 	"text",        // upstream_request_id
 	"text",        // session_id
 	"boolean",     // native_compaction_v2
@@ -291,8 +291,8 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			billing_tier,
 			billing_mode,
 			account_stats_cost,
-			codex_turn_state,
-			codex_turn_state_length,
+			response_codex_turn_state,
+			response_codex_turn_state_length,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
@@ -759,8 +759,8 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			billing_tier,
 			billing_mode,
 			account_stats_cost,
-			codex_turn_state,
-			codex_turn_state_length,
+			response_codex_turn_state,
+			response_codex_turn_state_length,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
@@ -858,8 +858,8 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				billing_tier,
 				billing_mode,
 				account_stats_cost,
-				codex_turn_state,
-				codex_turn_state_length,
+				response_codex_turn_state,
+				response_codex_turn_state_length,
 				upstream_request_id,
 				session_id,
 				native_compaction_v2,
@@ -927,8 +927,8 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				billing_tier,
 				billing_mode,
 				account_stats_cost,
-				codex_turn_state,
-				codex_turn_state_length,
+				response_codex_turn_state,
+				response_codex_turn_state_length,
 				upstream_request_id,
 				session_id,
 				native_compaction_v2,
@@ -1036,8 +1036,8 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			billing_tier,
 			billing_mode,
 			account_stats_cost,
-			codex_turn_state,
-			codex_turn_state_length,
+			response_codex_turn_state,
+			response_codex_turn_state_length,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
@@ -1131,8 +1131,8 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			billing_tier,
 			billing_mode,
 			account_stats_cost,
-			codex_turn_state,
-			codex_turn_state_length,
+			response_codex_turn_state,
+			response_codex_turn_state_length,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
@@ -1200,8 +1200,8 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			billing_tier,
 			billing_mode,
 			account_stats_cost,
-			codex_turn_state,
-			codex_turn_state_length,
+			response_codex_turn_state,
+			response_codex_turn_state_length,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
@@ -1277,8 +1277,8 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			billing_tier,
 			billing_mode,
 			account_stats_cost,
-			codex_turn_state,
-			codex_turn_state_length,
+			response_codex_turn_state,
+			response_codex_turn_state_length,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
@@ -1418,7 +1418,7 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			billingMode,
 			log.AccountStatsCost, // account_stats_cost
 			nullString(log.CodexTurnState),
-			nullInt(log.CodexTurnStateLength), // codex_turn_state_length
+			nullInt(log.CodexTurnStateLength), // response_codex_turn_state_length
 			upstreamRequestID,                 // upstream_request_id
 			sessionID,                         // session_id
 			log.NativeCompactionV2,

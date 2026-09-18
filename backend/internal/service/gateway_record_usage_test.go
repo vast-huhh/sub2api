@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -831,10 +832,13 @@ func TestGatewayServiceRecordUsage_PersistsCodexTurnStateLength(t *testing.T) {
 		repo := &openAIRecordUsageLogRepoStub{inserted: true}
 		svc := newGatewayRecordUsageServiceForTest(repo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 		state := strings.Repeat("x", length)
-		ctx := context.WithValue(context.Background(), ctxkey.CodexTurnStateLength, length)
-		ctx = context.WithValue(ctx, ctxkey.CodexTurnState, state)
+		ctx := context.WithValue(context.Background(), ctxkey.Key("ctx_codex_turn_state"), "inbound-wrong-state")
+		headers := make(http.Header)
+		if state != "" {
+			headers.Set("X-Codex-Turn-State", state)
+		}
 		err := svc.RecordUsage(ctx, &RecordUsageInput{
-			Result: &ForwardResult{RequestID: "resp_turn_state", Model: "claude-sonnet-4", Usage: ClaudeUsage{InputTokens: 20, OutputTokens: 10}},
+			Result: &ForwardResult{RequestID: "resp_turn_state", UpstreamHeaders: headers, Model: "claude-sonnet-4", Usage: ClaudeUsage{InputTokens: 20, OutputTokens: 10}},
 			APIKey: &APIKey{ID: 10}, User: &User{ID: 20}, Account: &Account{ID: 30},
 		})
 		require.NoError(t, err)

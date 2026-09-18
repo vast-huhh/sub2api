@@ -26,12 +26,6 @@ const (
 	// ClientRequestID 客户端请求的唯一标识，用于追踪请求全生命周期（用于 Ops 监控与排障）。
 	ClientRequestID Key = "ctx_client_request_id"
 
-	// CodexTurnState is the original inbound header value for admin usage records.
-	CodexTurnState Key = "ctx_codex_turn_state"
-
-	// CodexTurnStateLength is the inbound header value size in bytes.
-	CodexTurnStateLength Key = "ctx_codex_turn_state_length"
-
 	// Model 请求模型标识（用于统一请求链路日志字段）。
 	Model Key = "ctx_model"
 

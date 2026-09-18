@@ -375,6 +375,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		// Keep the image cache split in the existing usage_logs JSONB payload.
 		imageSizeBreakdown["image_cache_read_tokens"] = result.Usage.ImageCacheReadTokens
 	}
+	// HTTP forwarding keeps raw upstream headers; WebSocket forwarding keeps
+	// the upstream handshake (or HTTP bridge response) headers in ResponseHeaders.
+	responseHeaders := result.UpstreamHeaders
+	if responseHeaders == nil {
+		responseHeaders = result.ResponseHeaders
+	}
+	turnState, turnStateLength := codexTurnStateFromResponse(responseHeaders)
 	usageLog := &UsageLog{
 		UserID:                   user.ID,
 		APIKeyID:                 apiKey.ID,
@@ -389,8 +396,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ServiceTier:              result.ServiceTier,
 		ReasoningEffort:          result.ReasoningEffort,
 		RequestedReasoningEffort: coalesceRequestedReasoningEffort(result.RequestedReasoningEffort, result.ReasoningEffort),
-		CodexTurnStateLength:     codexTurnStateLengthFromContext(ctx),
-		CodexTurnState:           codexTurnStateFromContext(ctx),
+		CodexTurnStateLength:     turnStateLength,
+		CodexTurnState:           turnState,
 		InboundEndpoint:          optionalTrimmedStringPtr(input.InboundEndpoint),
 		UpstreamEndpoint:         optionalTrimmedStringPtr(input.UpstreamEndpoint),
 		InputTokens:              actualInputTokens,

@@ -36,7 +36,9 @@ func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
 
 	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
+		responseHeaders := make(http.Header)
+		responseHeaders.Set("X-Codex-Turn-State", "upstream-handshake-state")
+		conn, err := upgrader.Upgrade(w, r, responseHeaders)
 		if err != nil {
 			t.Errorf("upgrade websocket failed: %v", err)
 			return
@@ -147,6 +149,7 @@ func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
 	result, err := svc.Forward(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
+	require.Equal(t, "upstream-handshake-state", result.ResponseHeaders.Get("X-Codex-Turn-State"))
 	require.Equal(t, 12, result.Usage.InputTokens)
 	require.Equal(t, 7, result.Usage.OutputTokens)
 	require.Equal(t, 3, result.Usage.CacheReadInputTokens)
