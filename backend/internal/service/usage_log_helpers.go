@@ -1,33 +1,23 @@
 package service
 
 import (
-	"context"
+	"net/http"
 	"strings"
-
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 )
 
-// Keep the original value unchanged so copying reproduces the inbound header.
-func codexTurnStateFromContext(ctx context.Context) *string {
-	if ctx == nil {
-		return nil
+// codexTurnStateFromResponse preserves the full upstream response value. A nil
+// header map means no response headers were captured; an observed response
+// without this header has length zero. Never fall back to an inbound value.
+func codexTurnStateFromResponse(headers http.Header) (*string, *int) {
+	if headers == nil {
+		return nil, nil
 	}
-	state, ok := ctx.Value(ctxkey.CodexTurnState).(string)
-	if !ok || state == "" {
-		return nil
+	state := headers.Get(openAICodexTurnStateHeader)
+	length := len(state)
+	if state == "" {
+		return nil, &length
 	}
-	return &state
-}
-
-func codexTurnStateLengthFromContext(ctx context.Context) *int {
-	if ctx == nil {
-		return nil
-	}
-	length, ok := ctx.Value(ctxkey.CodexTurnStateLength).(int)
-	if !ok {
-		return nil
-	}
-	return &length
+	return &state, &length
 }
 
 func optionalTrimmedStringPtr(raw string) *string {

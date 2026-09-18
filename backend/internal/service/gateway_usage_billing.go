@@ -1312,6 +1312,7 @@ func (s *GatewayService) buildRecordUsageLog(
 			"selected_response_model", strings.TrimSpace(result.UpstreamResponseModel),
 		)
 	}
+	turnState, turnStateLength := codexTurnStateFromResponse(result.UpstreamHeaders)
 	usageLog := &UsageLog{
 		UserID:                   user.ID,
 		APIKeyID:                 apiKey.ID,
@@ -1326,8 +1327,8 @@ func (s *GatewayService) buildRecordUsageLog(
 		ServiceTier:              result.ServiceTier,
 		ReasoningEffort:          result.ReasoningEffort,
 		RequestedReasoningEffort: coalesceRequestedReasoningEffort(result.RequestedReasoningEffort, result.ReasoningEffort),
-		CodexTurnStateLength:     codexTurnStateLengthFromContext(ctx),
-		CodexTurnState:           codexTurnStateFromContext(ctx),
+		CodexTurnStateLength:     turnStateLength,
+		CodexTurnState:           turnState,
 		InboundEndpoint:          optionalTrimmedStringPtr(input.InboundEndpoint),
 		UpstreamEndpoint:         optionalTrimmedStringPtr(input.UpstreamEndpoint),
 		InputTokens:              result.Usage.InputTokens,

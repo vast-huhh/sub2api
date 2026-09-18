@@ -78,3 +78,26 @@ func TestUsageLog_SessionIDPersistence(t *testing.T) {
 	require.Nil(t, gotNone.CodexTurnState)
 	require.Nil(t, gotNone.CodexTurnStateLength)
 }
+
+// Old inbound values must remain intact for rollback but must not appear as
+// response state in the current admin usage projection.
+func TestUsageLog_LegacyInboundTurnStateIsNotResponseState(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := newUsageLogRepositoryWithSQL(client, integrationDB)
+	user := mustCreateUser(t, client, &service.User{Email: "response-state-" + uuid.NewString() + "@example.com"})
+	key := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, Key: "sk-response-" + uuid.NewString(), Name: "k"})
+	account := mustCreateAccount(t, client, &service.Account{Name: "acc-response-" + uuid.NewString()})
+	log := &service.UsageLog{UserID: user.ID, APIKeyID: key.ID, AccountID: account.ID, RequestID: uuid.NewString(), Model: "gpt-5.4", CreatedAt: time.Now().UTC()}
+	_, err := repo.Create(ctx, log)
+	require.NoError(t, err)
+	_, err = integrationDB.ExecContext(ctx, "UPDATE usage_logs SET codex_turn_state = $1, codex_turn_state_length = $2 WHERE id = $3", "legacy-inbound", len("legacy-inbound"), log.ID)
+	require.NoError(t, err)
+	got, err := repo.GetByID(ctx, log.ID)
+	require.NoError(t, err)
+	require.Nil(t, got.CodexTurnState)
+	require.Nil(t, got.CodexTurnStateLength)
+	var legacy string
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT codex_turn_state FROM usage_logs WHERE id = $1", log.ID).Scan(&legacy))
+	require.Equal(t, "legacy-inbound", legacy)
+}
