@@ -1,6 +1,34 @@
 package service
 
-import "strings"
+import (
+	"context"
+	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+)
+
+// Keep the original value unchanged so copying reproduces the inbound header.
+func codexTurnStateFromContext(ctx context.Context) *string {
+	if ctx == nil {
+		return nil
+	}
+	state, ok := ctx.Value(ctxkey.CodexTurnState).(string)
+	if !ok || state == "" {
+		return nil
+	}
+	return &state
+}
+
+func codexTurnStateLengthFromContext(ctx context.Context) *int {
+	if ctx == nil {
+		return nil
+	}
+	length, ok := ctx.Value(ctxkey.CodexTurnStateLength).(int)
+	if !ok {
+		return nil
+	}
+	return &length
+}
 
 func optionalTrimmedStringPtr(raw string) *string {
 	trimmed := strings.TrimSpace(raw)

@@ -1860,6 +1860,8 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  codex_turn_state_length?: number | null
+  codex_turn_state?: string | null
   upstream_model?: string | null
   upstream_reasoning_effort?: string | null
   upstream_response_model?: string | null

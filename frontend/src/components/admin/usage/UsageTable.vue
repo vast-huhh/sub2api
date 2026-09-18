@@ -104,6 +104,32 @@
           </span>
         </template>
 
+        <template #cell-codex_turn_state_length="{ row }">
+          <span
+            data-testid="codex-turn-state-length-cell"
+            class="whitespace-nowrap text-sm tabular-nums text-gray-900 dark:text-white"
+            :title="t('usage.codexTurnStateLengthHint')"
+          >
+            {{ row.codex_turn_state_length == null ? '-' : `${row.codex_turn_state_length.toLocaleString()} B` }}
+          </span>
+        </template>
+
+        <template #cell-codex_turn_state="{ row }">
+          <button
+            v-if="row.codex_turn_state"
+            type="button"
+            data-testid="codex-turn-state-copy"
+            class="inline-flex max-w-[220px] items-center gap-1.5 text-left text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            :title="t('usage.copyCodexTurnState')"
+            :aria-label="t('usage.copyCodexTurnState')"
+            @click="copyCodexTurnState(row.codex_turn_state)"
+          >
+            <span class="truncate font-mono">{{ abbreviateCodexTurnState(row.codex_turn_state) }}</span>
+            <Icon :name="copiedValue === row.codex_turn_state ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5 shrink-0" />
+          </button>
+          <span v-else data-testid="codex-turn-state-empty" class="text-sm text-gray-400 dark:text-gray-500">-</span>
+        </template>
+
         <template #cell-endpoint="{ row }">
           <div class="max-w-[320px] space-y-1 text-xs">
             <div class="break-all text-gray-700 dark:text-gray-300">
@@ -263,11 +289,11 @@
             <button
               type="button"
               class="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-300"
-              :class="copiedRequestId === row.request_id ? 'text-green-500 hover:text-green-500' : ''"
-              :title="copiedRequestId === row.request_id ? t('keys.copied') : t('keys.copyToClipboard')"
+              :class="copiedValue === row.request_id ? 'text-green-500 hover:text-green-500' : ''"
+              :title="copiedValue === row.request_id ? t('keys.copied') : t('keys.copyToClipboard')"
               @click="copyRequestId(row.request_id)"
             >
-              <Icon :name="copiedRequestId === row.request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
+              <Icon :name="copiedValue === row.request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
             </button>
           </div>
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -281,11 +307,11 @@
             <button
               type="button"
               class="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-300"
-              :class="copiedRequestId === row.upstream_request_id ? 'text-green-500 hover:text-green-500' : ''"
-              :title="copiedRequestId === row.upstream_request_id ? t('keys.copied') : t('keys.copyToClipboard')"
+              :class="copiedValue === row.upstream_request_id ? 'text-green-500 hover:text-green-500' : ''"
+              :title="copiedValue === row.upstream_request_id ? t('keys.copied') : t('keys.copyToClipboard')"
               @click="copyUpstreamRequestId(row.upstream_request_id)"
             >
-              <Icon :name="copiedRequestId === row.upstream_request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
+              <Icon :name="copiedValue === row.upstream_request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
             </button>
           </div>
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -615,7 +641,7 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 const appStore = useAppStore()
-const copiedRequestId = ref<string | null>(null)
+const copiedValue = ref<string | null>(null)
 const showAccountBilling = props.showAccountBilling
 const showUpstreamEndpoint = props.showUpstreamEndpoint
 const ipGeoBatchLoading = ref(false)
@@ -671,22 +697,26 @@ const handleBatchFetchIpGeo = async () => {
   }
 }
 
-const copyIdentifier = async (value: string, copiedMessage: string) => {
+const copyValue = async (value: string, copiedMessage: string) => {
   try {
     await navigator.clipboard.writeText(value)
-    copiedRequestId.value = value
+    copiedValue.value = value
     appStore.showSuccess(copiedMessage)
     window.setTimeout(() => {
-      if (copiedRequestId.value === value) copiedRequestId.value = null
+      if (copiedValue.value === value) copiedValue.value = null
     }, 2000)
   } catch {
     appStore.showError(t('common.copyFailed'))
   }
 }
 
-const copyRequestId = (requestId: string) => copyIdentifier(requestId, t('admin.usage.requestIdCopied'))
+const copyRequestId = (requestId: string) => copyValue(requestId, t('admin.usage.requestIdCopied'))
 const copyUpstreamRequestId = (upstreamRequestId: string) =>
-  copyIdentifier(upstreamRequestId, t('admin.usage.upstreamRequestIdCopied'))
+  copyValue(upstreamRequestId, t('admin.usage.upstreamRequestIdCopied'))
+
+const abbreviateCodexTurnState = (value: string) =>
+  value.length > 36 ? `${value.slice(0, 20)}…${value.slice(-12)}` : value
+const copyCodexTurnState = (value: string) => copyValue(value, t('usage.codexTurnStateCopied'))
 
 // Tooltip state - cost
 const tooltipVisible = ref(false)

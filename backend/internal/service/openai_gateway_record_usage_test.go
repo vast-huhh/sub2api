@@ -3253,3 +3253,36 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 	require.NoError(t, calcErr)
 	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
+
+func TestOpenAIGatewayServiceRecordUsage_PersistsCodexTurnStateLength(t *testing.T) {
+	for _, length := range []int{-1, 0, 8192} {
+		repo := &openAIRecordUsageLogRepoStub{inserted: true}
+		svc := newOpenAIRecordUsageServiceForTest(repo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+		ctx := context.Background()
+		state := ""
+		if length > 0 {
+			state = " " + strings.Repeat("x", length-2) + " "
+		}
+		if length >= 0 {
+			ctx = context.WithValue(ctx, ctxkey.CodexTurnState, state)
+			ctx = context.WithValue(ctx, ctxkey.CodexTurnStateLength, length)
+		}
+		err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
+			Result: &OpenAIForwardResult{RequestID: "resp_turn_state", Model: "gpt-5.4", Usage: OpenAIUsage{InputTokens: 20, OutputTokens: 10}},
+			APIKey: &APIKey{ID: 10}, User: &User{ID: 20}, Account: &Account{ID: 30},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, repo.lastLog)
+		if state == "" {
+			require.Nil(t, repo.lastLog.CodexTurnState)
+		} else {
+			require.Equal(t, &state, repo.lastLog.CodexTurnState)
+		}
+		if length < 0 {
+			require.Nil(t, repo.lastLog.CodexTurnStateLength)
+		} else {
+			require.NotNil(t, repo.lastLog.CodexTurnStateLength)
+			require.Equal(t, length, *repo.lastLog.CodexTurnStateLength)
+		}
+	}
+}

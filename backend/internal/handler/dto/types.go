@@ -676,6 +676,10 @@ type UsageLog struct {
 type AdminUsageLog struct {
 	UsageLog
 
+	// Inbound X-Codex-Turn-State value length in bytes; nil for uncaptured rows.
+	CodexTurnStateLength *int    `json:"codex_turn_state_length"`
+	CodexTurnState       *string `json:"codex_turn_state"`
+
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Omitted when no mapping was applied (requested model was used as-is).
 	UpstreamModel *string `json:"upstream_model,omitempty"`

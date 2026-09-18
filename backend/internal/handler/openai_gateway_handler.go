@@ -251,6 +251,12 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if clientRequestID, _ := parent.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
 		base = context.WithValue(base, ctxkey.ClientRequestID, strings.TrimSpace(clientRequestID))
 	}
+	if state, ok := parent.Value(ctxkey.CodexTurnState).(string); ok {
+		base = context.WithValue(base, ctxkey.CodexTurnState, state)
+	}
+	if length, ok := parent.Value(ctxkey.CodexTurnStateLength).(int); ok {
+		base = context.WithValue(base, ctxkey.CodexTurnStateLength, length)
+	}
 	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
 		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
 	}
@@ -4240,7 +4246,7 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 			})
 		}
 		if forwardErrored && gwSvc != nil {
-			gwSvc.RecordCyberPolicyUsageLog(ctx, service.CyberPolicyUsageInput{
+			gwSvc.RecordCyberPolicyUsageLog(usageRecordContext(requestCtx, ctx), service.CyberPolicyUsageInput{
 				APIKey:             apiKey,
 				Account:            account,
 				Subscription:       subscription,

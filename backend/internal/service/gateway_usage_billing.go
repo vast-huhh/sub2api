@@ -1183,6 +1183,8 @@ func (s *GatewayService) buildRecordUsageLog(
 		ServiceTier:              result.ServiceTier,
 		ReasoningEffort:          result.ReasoningEffort,
 		RequestedReasoningEffort: coalesceRequestedReasoningEffort(result.RequestedReasoningEffort, result.ReasoningEffort),
+		CodexTurnStateLength:     codexTurnStateLengthFromContext(ctx),
+		CodexTurnState:           codexTurnStateFromContext(ctx),
 		InboundEndpoint:          optionalTrimmedStringPtr(input.InboundEndpoint),
 		UpstreamEndpoint:         optionalTrimmedStringPtr(input.UpstreamEndpoint),
 		InputTokens:              result.Usage.InputTokens,
