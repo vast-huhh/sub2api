@@ -143,3 +143,47 @@ func TestPrepareUsageLogInsert_UpstreamRequestIDArgWiring(t *testing.T) {
 
 	require.Contains(t, usageLogSelectColumns, "upstream_request_id")
 }
+
+func TestUsageLogCodexTurnStateLengthPersistence(t *testing.T) {
+	for _, length := range []int{-1, 0, 8192} {
+		log := newSessionIDUsageLog(nil)
+		if length > 0 {
+			state := " " + strings.Repeat("x", length-2) + " "
+			log.CodexTurnState = &state
+		}
+		if length >= 0 {
+			log.CodexTurnStateLength = &length
+		}
+		prepared := prepareUsageLogInsert(log)
+		rawArg := prepared.args[len(prepared.args)-6].(sql.NullString)
+		require.Equal(t, length > 0, rawArg.Valid)
+		if length > 0 {
+			require.Equal(t, *log.CodexTurnState, rawArg.String)
+		}
+		idx := len(prepared.args) - 5
+		require.Equal(t, "integer", usageLogInsertArgTypes[idx])
+		arg := prepared.args[idx].(sql.NullInt64)
+		require.Equal(t, length >= 0, arg.Valid)
+		if length >= 0 {
+			require.Equal(t, int64(length), arg.Int64)
+		}
+
+		key := usageLogBatchKey(log.RequestID, log.APIKeyID)
+		batch, _ := buildUsageLogBatchInsertQuery([]string{key}, map[string]usageLogInsertPrepared{key: prepared})
+		bestEffort, _ := buildUsageLogBestEffortInsertQuery([]usageLogInsertPrepared{prepared})
+		for _, query := range []string{batch, bestEffort} {
+			require.GreaterOrEqual(t, strings.Count(query, "codex_turn_state_length"), 3)
+		}
+
+		values := anySliceToDriverValues(append([]any{int64(1)}, prepared.args...))
+		db, mock := newSQLMock(t)
+		t.Cleanup(func() { _ = db.Close() })
+		columns := strings.Split(strings.ReplaceAll(usageLogSelectColumns, " ", ""), ",")
+		mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows(columns).AddRow(values...))
+		scanned, err := scanUsageLog(db.QueryRow("SELECT " + usageLogSelectColumns + " FROM usage_logs"))
+		require.NoError(t, err)
+		require.Equal(t, log.CodexTurnStateLength, scanned.CodexTurnStateLength)
+		require.Equal(t, log.CodexTurnState, scanned.CodexTurnState)
+		require.NoError(t, mock.ExpectationsWereMet())
+	}
+}

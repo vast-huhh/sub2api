@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -331,4 +332,33 @@ func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 
 func f64Ptr(value float64) *float64 {
 	return &value
+}
+
+func TestAdminUsageLogCodexTurnStateLength(t *testing.T) {
+	for _, length := range []int{-1, 0, 8192} {
+		log := &service.UsageLog{}
+		expected := `"codex_turn_state_length":null`
+		if length >= 0 {
+			log.CodexTurnStateLength = &length
+			expected = fmt.Sprintf(`"codex_turn_state_length":%d`, length)
+		}
+		data, err := json.Marshal(UsageLogFromServiceAdmin(log))
+		require.NoError(t, err)
+		require.Contains(t, string(data), expected)
+	}
+}
+
+func TestUsageLogCodexTurnStateAdminOnly(t *testing.T) {
+	state := "opaque-full-turn-state"
+	log := &service.UsageLog{CodexTurnState: &state}
+	adminJSON, err := json.Marshal(UsageLogFromServiceAdmin(log))
+	require.NoError(t, err)
+	require.Contains(t, string(adminJSON), `"codex_turn_state":"opaque-full-turn-state"`)
+	userJSON, err := json.Marshal(UsageLogFromService(log))
+	require.NoError(t, err)
+	require.NotContains(t, string(userJSON), "codex_turn_state")
+	require.NotContains(t, string(userJSON), state)
+	absentJSON, err := json.Marshal(UsageLogFromServiceAdmin(&service.UsageLog{}))
+	require.NoError(t, err)
+	require.Contains(t, string(absentJSON), `"codex_turn_state":null`)
 }

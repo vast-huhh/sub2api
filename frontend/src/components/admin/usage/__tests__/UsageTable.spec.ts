@@ -58,6 +58,7 @@ const messages: Record<string, string> = {
   'usage.stream': 'Stream',
   'usage.sync': 'Sync',
   'usage.nativeCompactionV2': 'Compaction',
+  'usage.codexTurnStateCopied': 'X-Codex-Turn-State copied',
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
@@ -90,6 +91,8 @@ const DataTableStub = {
       <div v-for="row in data" :key="row.request_id">
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-reasoning_effort" :row="row" :value="row.reasoning_effort" />
+        <slot name="cell-codex_turn_state_length" :row="row" />
+        <slot name="cell-codex_turn_state" :row="row" />
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
@@ -775,6 +778,8 @@ const DataTableStubWithUser = {
         <slot name="cell-user" :row="row" />
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-reasoning_effort" :row="row" :value="row.reasoning_effort" />
+        <slot name="cell-codex_turn_state_length" :row="row" />
+        <slot name="cell-codex_turn_state" :row="row" />
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
@@ -852,5 +857,66 @@ describe('admin UsageTable deleted-user badge', () => {
 
     expect(wrapper.text()).not.toContain('Deleted')
     expect(wrapper.text()).toContain('active@test.com')
+  })
+})
+
+
+describe('admin UsageTable turn state length', () => {
+  it('shows bytes, zero for absent headers, and a dash for historical records', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [8192, 0, null, undefined].map((length, index) => ({
+          ...baseImageRow,
+          request_id: `req-state-${index}`,
+          codex_turn_state_length: length,
+        })),
+        columns: [],
+        loading: false,
+      },
+      global: { stubs: { DataTable: DataTableStub, Icon: true, Teleport: true } },
+    })
+    expect(wrapper.findAll('[data-testid="codex-turn-state-length-cell"]').map(cell => cell.text()))
+      .toEqual([`${(8192).toLocaleString()} B`, '0 B', '-', '-'])
+  })
+})
+
+
+describe('admin UsageTable turn state copy', () => {
+  const mountState = (state?: string | null) => mount(UsageTable, {
+    props: { data: [{ ...baseImageRow, codex_turn_state: state }], columns: [], loading: false },
+    global: { stubs: { DataTable: DataTableStub, Icon: true, Teleport: true } },
+  })
+
+  it('abbreviates long values and copies the full unchanged header', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const state = `prefix-${'x'.repeat(65536)}-suffix`
+    const wrapper = mountState(state)
+    const button = wrapper.get('[data-testid="codex-turn-state-copy"]')
+    expect(button.text()).toBe(`${state.slice(0, 20)}…${state.slice(-12)}`)
+    expect(wrapper.text()).not.toContain(state)
+    await button.trigger('click')
+    expect(writeText).toHaveBeenCalledWith(state)
+    expect(appStoreMocks.showSuccess).toHaveBeenCalledWith('X-Codex-Turn-State copied')
+  })
+
+  it('keeps short values visible and reports clipboard failure', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    appStoreMocks.showSuccess.mockClear()
+    appStoreMocks.showError.mockClear()
+    const wrapper = mountState('short-state')
+    const button = wrapper.get('[data-testid="codex-turn-state-copy"]')
+    expect(button.text()).toBe('short-state')
+    await button.trigger('click')
+    expect(writeText).toHaveBeenCalledWith('short-state')
+    expect(appStoreMocks.showError).toHaveBeenCalledWith('Copy failed')
+    expect(appStoreMocks.showSuccess).not.toHaveBeenCalled()
+  })
+
+  it.each([null, undefined, ''])('shows a dash without a copy button for %s', (state) => {
+    const wrapper = mountState(state)
+    expect(wrapper.find('[data-testid="codex-turn-state-copy"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="codex-turn-state-empty"]').text()).toBe('-')
   })
 })
