@@ -21,28 +21,55 @@ func TestEvaluatePluginCompatibility(t *testing.T) {
 	result = EvaluatePluginCompatibility(manifest, host)
 	require.True(t, result.Compatible)
 	assert.False(t, result.Tested)
-	assert.Equal(t, "untested", result.Status)
+	assert.Equal(t, "compatible", result.Status)
 
 	manifest.Requires.Sub2API = ">=0.2.0 <0.3.0"
 	result = EvaluatePluginCompatibility(manifest, host)
-	assert.False(t, result.Compatible)
-	assert.Equal(t, "incompatible", result.Status)
+	assert.True(t, result.Compatible)
+	assert.Equal(t, "compatible", result.Status)
 }
 
 func TestEvaluatePluginCompatibilityRejectsProtocolMismatch(t *testing.T) {
-	manifest := testPluginManifest(nil)
-	manifest.Requires.PluginProtocol = pluginv1.ProtocolVersion + 1
-
-	result := EvaluatePluginCompatibility(manifest, PluginHostInfo{Version: "0.1.179"})
-
-	assert.False(t, result.Compatible)
-	assert.Equal(t, "incompatible", result.Status)
+	for _, protocol := range []string{"plugin", "transport", "ui"} {
+		t.Run(protocol, func(t *testing.T) {
+			manifest := testPluginManifest(nil)
+			switch protocol {
+			case "plugin":
+				manifest.Requires.PluginProtocol = pluginv1.ProtocolVersion + 1
+			case "transport":
+				manifest.Requires.TransportAPI = pluginv1.TransportAPIVersion + 1
+			case "ui":
+				manifest.Requires.UIBridge = pluginv1.UIBridgeVersion + 1
+			}
+			result := EvaluatePluginCompatibility(manifest, PluginHostInfo{Version: "local-custom"})
+			assert.False(t, result.Compatible)
+			assert.Equal(t, "incompatible", result.Status)
+		})
+	}
 }
 
-func TestMatchesSemverRange(t *testing.T) {
-	assert.True(t, matchesSemverRange("0.1.179", ">=0.1.170, <0.2.0"))
-	assert.True(t, matchesSemverRange("v1.2.3", "=1.2.3"))
-	assert.False(t, matchesSemverRange("0.1.169", ">=0.1.170 <0.2.0"))
-	assert.False(t, matchesSemverRange("dev", ">=0.1.0"))
-	assert.False(t, matchesSemverRange("0.1.179", "^0.1.0"))
+func TestEvaluatePluginCompatibilityAllowsCustomHostVersions(t *testing.T) {
+	for _, version := range []string{"dev", "local-custom", "0.2.7-pat401r1", "0.0.1", "99.0.0", ""} {
+		t.Run(version, func(t *testing.T) {
+			manifest := testPluginManifest(nil)
+			manifest.Requires.Sub2API = ">=0.2.7 <0.3.0"
+			manifest.Requires.TestedSub2APIVersions = []string{"0.2.7", "other-custom", ""}
+			result := EvaluatePluginCompatibility(manifest, PluginHostInfo{Version: version})
+			assert.True(t, result.Compatible)
+			assert.False(t, result.Tested)
+			assert.Equal(t, "compatible", result.Status)
+		})
+	}
+}
+
+func TestEvaluatePluginCompatibilityPreservesTestedVersionMetadata(t *testing.T) {
+	for _, version := range []string{"v0.1.179", "local-custom"} {
+		t.Run(version, func(t *testing.T) {
+			manifest := testPluginManifest(nil)
+			manifest.Requires.TestedSub2APIVersions = []string{"0.1.179", "local-custom"}
+			result := EvaluatePluginCompatibility(manifest, PluginHostInfo{Version: version})
+			assert.True(t, result.Compatible)
+			assert.True(t, result.Tested)
+		})
+	}
 }

@@ -107,15 +107,15 @@ func TestPluginPackageInstallerRejectsPathTraversal(t *testing.T) {
 	assert.Contains(t, err.Error(), "不安全路径")
 }
 
-func TestPluginPackageInstallerKeepsHostVersionMismatchDisabled(t *testing.T) {
+func TestPluginPackageInstallerAllowsCustomHostVersion(t *testing.T) {
 	cfg := testPluginConfig(t.TempDir(), true)
-	installer := NewPluginPackageInstaller(cfg, PluginHostInfo{Version: "0.2.0"})
+	installer := NewPluginPackageInstaller(cfg, PluginHostInfo{Version: "local-custom"})
 
 	installation, err := installer.Install(context.Background(), bytes.NewReader(buildTestPluginArchive(t, nil, "")), nil)
 
 	require.NoError(t, err)
-	assert.Equal(t, PluginStateIncompatible, installation.State)
-	assert.False(t, installation.Compatibility.Compatible)
+	assert.Equal(t, PluginStateDisabled, installation.State)
+	assert.True(t, installation.Compatibility.Compatible)
 }
 
 func TestPluginPackageInstallerRejectsHashMismatch(t *testing.T) {

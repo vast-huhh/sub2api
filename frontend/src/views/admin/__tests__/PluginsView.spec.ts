@@ -151,6 +151,26 @@ describe('管理员插件页二次验证', () => {
     expect(enablePlugin).toHaveBeenCalledWith(7, 100, false)
   })
 
+  it('自定义主程序版本无需未测试版本确认即可启用', async () => {
+    listPlugins.mockResolvedValue([{
+      ...plugin,
+      compatibility: { ...plugin.compatibility, tested: false, current_sub2api_version: 'local-custom' },
+    }])
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    try {
+      const wrapper = mountView()
+      await flushPromises()
+      const button = wrapper.findAll('button').find((item) => item.text().includes('admin.plugins.enable'))
+      await button!.trigger('click')
+      await flushPromises()
+      expect(confirm).not.toHaveBeenCalled()
+      expect(enablePlugin).toHaveBeenCalledWith(7, 100, false)
+      wrapper.unmount()
+    } finally {
+      confirm.mockRestore()
+    }
+  })
+
   it('上传插件通过 step-up 控制器执行', async () => {
     const wrapper = mountView()
     await flushPromises()

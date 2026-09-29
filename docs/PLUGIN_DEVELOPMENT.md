@@ -139,7 +139,7 @@ UI 是插件包内的静态页面，不需要修改 Sub2API 前端源码。宿�
 }
 ```
 
-打包器会自动填充目标平台运行时、UI 和运行时文件的 SHA-256。清单中的 `requires.sub2api` 是硬兼容范围；`tested_sub2api_versions` 应只填写真实验证过的版本；`recommended_sub2api_version` 用于管理页面展示。当前宿主仅处理 `openai.oauth.outbound_transport.v1`，声明其他能力不会自动产生新路由。后续增加 Provider 支持时，会在协议、能力清单和宿主路由完成适配后，再补充对应的清单示例。
+打包器会自动填充目标平台运行时、UI 和运行时文件的 SHA-256。本地定制版中，清单中的 `requires.sub2api` 仅展示发布者声明的版本范围，不限制安装或启用；未声明测试的宿主版本也无需额外确认，兼容性由协议版本检查决定；`tested_sub2api_versions` 应只填写真实验证过的版本；`recommended_sub2api_version` 用于管理页面展示。当前宿主仅处理 `openai.oauth.outbound_transport.v1`，声明其他能力不会自动产生新路由。后续增加 Provider 支持时，会在协议、能力清单和宿主路由完成适配后，再补充对应的清单示例。
 
 ## 7. 生成密钥并签名
 
@@ -216,7 +216,7 @@ SUB2API_TEST_PLUGIN_PACKAGE=plugins/my-openai-plugin/dist/my-openai-plugin.s2plu
 | 现象 | 排查方向 |
 | --- | --- |
 | 安装提示签名不受信任 | 检查 `signature.json.key_id`、Base64 公钥和配置键是否完全一致。 |
-| 插件显示不兼容 | 检查 `requires.sub2api`、`plugin_protocol`、`transport_api` 和 `ui_bridge`。 |
+| 插件显示不兼容 | 检查 `plugin_protocol`、`transport_api` 和 `ui_bridge`；本地定制版不按 `requires.sub2api` 拦截。 |
 | 插件进程无法启动 | 检查目标系统和架构对应的运行时路径、可执行权限和运行用户权限。 |
 | 配置页无法加载 | 检查 `ui.entrypoint`、UI 文件哈希、Bridge Token 校验和 iframe 消息来源。 |
 | 保存后配置未生效 | 查看 `ValidateConfig`、`ApplyConfig` 返回的规范化配置和诊断信息。 |

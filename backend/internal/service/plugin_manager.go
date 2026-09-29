@@ -554,7 +554,7 @@ func verifyLocalPluginBinary(installation *PluginInstallation, root string) erro
 	return nil
 }
 
-func (m *PluginManager) Enable(ctx context.Context, id int64, acceptUntested bool, rolloutPercent int) (*PluginInstallation, error) {
+func (m *PluginManager) Enable(ctx context.Context, id int64, _ bool, rolloutPercent int) (*PluginInstallation, error) {
 	m.operationMu.Lock()
 	defer m.operationMu.Unlock()
 	if rolloutPercent < 1 || rolloutPercent > 100 {
@@ -581,9 +581,6 @@ func (m *PluginManager) Enable(ctx context.Context, id int64, acceptUntested boo
 	if !compatibility.Compatible {
 		stateErr := m.repo.UpdateState(ctx, id, PluginStateIncompatible, compatibility.Message, nil, installation.BinarySHA256, installation.State)
 		return nil, errors.Join(errors.New(compatibility.Message), stateErr)
-	}
-	if !compatibility.Tested && !acceptUntested {
-		return nil, errors.New("插件未声明已测试当前 Sub2API 版本，需要管理员确认后启用")
 	}
 	installation, err = m.ensureLocalInstallation(ctx, installation)
 	if err != nil {

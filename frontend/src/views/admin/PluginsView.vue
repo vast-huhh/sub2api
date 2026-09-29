@@ -455,18 +455,13 @@ function setRollout(id: number, event: Event): void {
 }
 
 async function enablePlugin(plugin: PluginInstallation): Promise<void> {
-  let acceptUntested = false;
-  if (!plugin.compatibility.tested) {
-    acceptUntested = window.confirm(t("admin.plugins.confirmUntested"));
-    if (!acceptUntested) return;
-  }
   busyID.value = plugin.id;
   try {
     await pluginStepUp.run(() =>
       adminAPI.plugins.enable(
         plugin.id,
         rolloutValues.value[plugin.id] || 100,
-        acceptUntested,
+        false,
       ),
     );
     appStore.showSuccess(t("admin.plugins.enableSuccess"));
