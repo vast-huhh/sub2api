@@ -21,7 +21,7 @@ ui/assets/...
 字段规范见 [`v1/manifest.schema.json`](../v1/manifest.schema.json)。版本字段含义：
 
 - `version`：插件自身语义化版本。
-- `requires.sub2api`：宿主硬兼容范围。
+- `requires.sub2api`：发布者声明的宿主版本范围；本地定制版仅作展示，不限制安装或启用。
 - `recommended_sub2api_version`：建议宿主版本。
 - `tested_sub2api_versions`：发布者真实验证过的版本。
 - `plugin_protocol`：进程握手协议。

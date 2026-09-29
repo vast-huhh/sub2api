@@ -65,7 +65,7 @@ ui/assets/...
 
 清单必须同时声明：
 
-- `requires.sub2api`：允许的 Sub2API 语义化版本范围。
+- `requires.sub2api`：发布者声明的 Sub2API 版本范围；本地定制版仅作展示，不限制安装或启用。
 - `requires.recommended_sub2api_version`：建议使用的宿主版本。
 - `requires.tested_sub2api_versions`：发布者实际验证过的宿主版本。
 - `plugin_protocol`、`transport_api`、`ui_bridge`：三个独立协议版本。

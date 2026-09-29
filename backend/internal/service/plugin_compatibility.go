@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"strings"
 
 	pluginv1 "github.com/Wei-Shaw/sub2api/pkg/pluginapi/v1"
@@ -29,24 +28,22 @@ func EvaluatePluginCompatibility(manifest PluginManifest, host PluginHostInfo) P
 		result.Message = "插件协议版本与当前 Sub2API 不兼容"
 		return result
 	}
-	if !matchesSemverRange(host.Version, manifest.Requires.Sub2API) {
-		result.Status = "incompatible"
-		result.Message = fmt.Sprintf("当前 Sub2API %s 不满足插件要求 %s", host.Version, manifest.Requires.Sub2API)
-		return result
-	}
+	// Custom builds use independent host version numbers; only protocol versions gate compatibility.
 	result.Compatible = true
+	result.Status = "compatible"
+	hostVersion := strings.TrimSpace(host.Version)
+	normalizedHostVersion := normalizeSemver(hostVersion)
 	for _, tested := range manifest.Requires.TestedSub2APIVersions {
-		if normalizeSemver(tested) == normalizeSemver(host.Version) {
+		if (hostVersion != "" && strings.TrimSpace(tested) == hostVersion) ||
+			(normalizedHostVersion != "" && normalizeSemver(tested) == normalizedHostVersion) {
 			result.Tested = true
 			break
 		}
 	}
 	if result.Tested {
-		result.Status = "compatible"
 		result.Message = "当前 Sub2API 版本已由插件声明测试"
 	} else {
-		result.Status = "untested"
-		result.Message = "版本范围兼容，但插件未声明已测试当前 Sub2API 版本"
+		result.Message = "插件协议兼容；主程序版本号不参与启用限制，当前版本未声明测试"
 	}
 	return result
 }
@@ -63,42 +60,4 @@ func normalizeSemver(version string) string {
 		return ""
 	}
 	return v
-}
-
-func matchesSemverRange(version, expression string) bool {
-	v := normalizeSemver(version)
-	if v == "" {
-		return false
-	}
-	tokens := strings.Fields(strings.ReplaceAll(expression, ",", " "))
-	if len(tokens) == 0 {
-		return false
-	}
-	for _, token := range tokens {
-		op := "="
-		raw := token
-		for _, candidate := range []string{">=", "<=", ">", "<", "="} {
-			if strings.HasPrefix(token, candidate) {
-				op = candidate
-				raw = strings.TrimSpace(strings.TrimPrefix(token, candidate))
-				break
-			}
-		}
-		bound := normalizeSemver(raw)
-		if bound == "" {
-			return false
-		}
-		comparison := semver.Compare(v, bound)
-		matched := map[string]bool{
-			">=": comparison >= 0,
-			"<=": comparison <= 0,
-			">":  comparison > 0,
-			"<":  comparison < 0,
-			"=":  comparison == 0,
-		}[op]
-		if !matched {
-			return false
-		}
-	}
-	return true
 }
