@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1378,6 +1379,30 @@ func TestGPT61SolRejectsDisabledReasoningBeforeForwarding(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 		require.Contains(t, rec.Body.String(), "gpt-6.1-sol")
+	}
+}
+
+func TestGPT61SolReasoningSuffixValidationSurvivesCustomNormalization(t *testing.T) {
+	for _, raw := range []bool{false, true} {
+		for _, model := range []string{"gpt-6.1-sol-none", "gpt-6.1-sol-minimal", "gpt-6.1-sol-high"} {
+			t.Run(fmt.Sprintf("raw=%t/%s", raw, model), func(t *testing.T) {
+				body := []byte(`{"model":"` + model + `","reasoning_effort":"none","messages":[{"role":"user","content":"hello"}]}`)
+				rec := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(rec)
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+				account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+				svc := &OpenAIGatewayService{cfg: &config.Config{}}
+				var err error
+				if raw {
+					_, err = svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+				} else {
+					_, err = svc.forwardAsChatCompletions(context.Background(), c, account, body, "", "", false)
+				}
+				require.Error(t, err)
+				require.Equal(t, http.StatusBadRequest, rec.Code)
+				require.Contains(t, rec.Body.String(), "gpt-6.1-sol")
+			})
+		}
 	}
 }
 

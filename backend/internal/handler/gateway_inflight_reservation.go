@@ -77,6 +77,10 @@ func reserveInflightBalanceCtx(
 	if apiKey.Group != nil && apiKey.Group.IsSubscriptionType() && subscription != nil {
 		return ctx, inflightNoop, nil
 	}
+	// Match the service's card bypass before cash-only pricing can fail closed.
+	if usable, err := billing.HasUsableBalanceCard(ctx, apiKey.User.ID); err != nil || usable {
+		return ctx, inflightNoop, err
+	}
 	estimate, priced := estimator.EstimateInflightReservation(ctx, apiKey, req)
 	if !priced && billing.InflightReservationFailClosedOnUnpriced() {
 		return ctx, inflightNoop, service.ErrInsufficientBalance
