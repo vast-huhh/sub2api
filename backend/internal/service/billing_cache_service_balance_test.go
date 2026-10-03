@@ -160,3 +160,67 @@ func TestSyncBalanceCacheAfterDeduction_CardOnlyLeavesCashUntouched(t *testing.T
 	require.Zero(t, cache.invalidateCalls.Load())
 	require.Zero(t, cache.deductCalls.Load())
 }
+
+type cashSplitDeductionCacheStub struct {
+	balanceEligibilityCacheStub
+	amounts   chan float64
+	failFirst bool
+}
+
+func (s *cashSplitDeductionCacheStub) DeductUserBalance(_ context.Context, _ int64, amount float64) error {
+	call := s.deductCalls.Add(1)
+	s.amounts <- amount
+	if s.failFirst && call == 1 {
+		return errors.New("temporary cache failure")
+	}
+	return nil
+}
+
+func TestSyncBalanceCacheAfterDeduction_InflightUsesCashSplit(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		cardCost          float64
+		cashCost          float64
+		newBalance        float64
+		failFirst         bool
+		wantCalls         int
+		wantInvalidations int64
+	}{
+		{name: "card_only", cardCost: 3, newBalance: 0},
+		{name: "mixed_payment", cardCost: 2, cashCost: 1, newBalance: 9, wantCalls: 1},
+		{name: "mixed_sync_failure_queues_cash_only", cardCost: 2, cashCost: 1, newBalance: 9, failFirst: true, wantCalls: 2},
+		{name: "cash_only", cashCost: 3, newBalance: 7, wantCalls: 1},
+		{name: "exhausted_cash", cardCost: 2, cashCost: 1, newBalance: 0, wantInvalidations: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := &cashSplitDeductionCacheStub{amounts: make(chan float64, 8), failFirst: tt.failFirst}
+			cfg := &config.Config{}
+			cfg.Billing.InflightReservation.Enabled = true
+			svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
+			t.Cleanup(svc.Stop)
+			cardID := int64(42)
+			result := &UsageBillingApplyResult{CashBalanceCost: tt.cashCost, NewBalance: &tt.newBalance}
+			if tt.cardCost > 0 {
+				result.BalanceCardID = &cardID
+				result.BalanceCardCost = tt.cardCost
+			}
+			syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
+				Cost: &CostBreakdown{ActualCost: 3}, User: &User{ID: 1},
+			}, &billingDeps{billingCacheService: svc}, result)
+			if tt.wantCalls > 0 {
+				require.Positive(t, cache.deductCalls.Load(), "first deduction must be synchronous")
+			}
+			for i := 0; i < tt.wantCalls; i++ {
+				select {
+				case amount := <-cache.amounts:
+					require.Equal(t, tt.cashCost, amount)
+				case <-time.After(2 * time.Second):
+					t.Fatal("cash cache deduction did not run")
+				}
+			}
+			svc.Stop()
+			require.Equal(t, int64(tt.wantCalls), cache.deductCalls.Load())
+			require.Equal(t, tt.wantInvalidations, cache.invalidateCalls.Load())
+		})
+	}
+}
