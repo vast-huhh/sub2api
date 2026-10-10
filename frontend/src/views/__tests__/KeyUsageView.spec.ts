@@ -117,6 +117,7 @@ describe('KeyUsageView daily detail', () => {
       value: vi.fn().mockReturnValue({ matches: false }),
     })
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => window.setTimeout(() => cb(0), 0))
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => window.clearTimeout(id))
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -214,6 +215,19 @@ describe('KeyUsageView daily detail', () => {
     wrapper.unmount()
   })
 
+  it.each([0, 1, 60])('cancels ring animation on unmount after %i ms', async (elapsed) => {
+    vi.useFakeTimers()
+    const wrapper = mount(KeyUsageView, {
+      global: { stubs: { RouterLink: true, LocaleSwitcher: true, Icon: true } },
+    })
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(elapsed)
+    wrapper.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('queries the current local calendar date near midnight', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 13, 0, 30))
@@ -248,6 +262,7 @@ describe('KeyUsageView subscription feature flag', () => {
       value: vi.fn().mockReturnValue({ matches: false }),
     })
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => window.setTimeout(() => cb(0), 0))
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => window.clearTimeout(id))
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
