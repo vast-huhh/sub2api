@@ -78,3 +78,25 @@ func TestInflightReservation_BalanceCardCompatibility(t *testing.T) {
 		}
 	}
 }
+
+func TestFixedCharge_PreservesCashReservationWithBalanceCard(t *testing.T) {
+	cache := newMemInflightCache(150)
+	svc := newInflightSvc(t, cache, 60)
+	svc.cfg.Billing.InflightReservation.MaxReservationUSD = 1
+	svc.SetBalanceCardDeps(&inflightCardRepo{card: &BalanceCardWalletSnapshot{
+		ExpiresAt: time.Now().Add(72 * time.Hour), DailyQuotaUSD: 500,
+	}}, nil)
+	user := &User{ID: 1, Balance: 150}
+	first, err := svc.ReserveFixedCharge(context.Background(), user, nil, nil, nil, 100)
+	require.NoError(t, err)
+	require.NotNil(t, first)
+	t.Cleanup(first.HandlerDone)
+	second, err := svc.ReserveFixedCharge(context.Background(), user, nil, nil, nil, 100)
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+	require.Nil(t, second)
+	require.Equal(t, 1, cache.count())
+	first.HandlerDone()
+	third, err := svc.ReserveFixedCharge(context.Background(), user, nil, nil, nil, 151)
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+	require.Nil(t, third)
+}

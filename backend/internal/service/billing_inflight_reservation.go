@@ -305,10 +305,12 @@ func (s *BillingCacheService) reserveInflight(ctx context.Context, user *User, g
 	if group != nil && group.IsSubscriptionType() && subscription != nil {
 		return nil, nil
 	}
-	// Reservations protect cash only. Preserve card-first admission (including
-	// automatic resets); card and fallback-cash concurrency remain unreserved.
-	if usable, err := s.HasUsableBalanceCard(ctx, user.ID); err != nil || usable {
-		return nil, err
+	// Estimated model requests retain card-first admission. Fixed charges keep
+	// upstream's full cash reservation even when a card is available.
+	if capped {
+		if usable, err := s.HasUsableBalanceCard(ctx, user.ID); err != nil || usable {
+			return nil, err
+		}
 	}
 	if capped && cfg.MaxReservationUSD > 0 && estimate > cfg.MaxReservationUSD {
 		estimate = cfg.MaxReservationUSD
