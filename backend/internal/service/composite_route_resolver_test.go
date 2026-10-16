@@ -12,6 +12,39 @@ type compositeRouteRepoStub struct {
 	routes []CompositeModelRoute
 }
 
+func TestCompositeRouteResolverCNDeepSeekFlashReasoningSuffix(t *testing.T) {
+	const base = "cn:deepseek-v4.1-flash"
+	const alias = base + "-max"
+	deepseek := Account{Platform: PlatformDeepseek, Credentials: map[string]any{"model_mapping": map[string]any{base: base}}}
+	openai := Account{Platform: PlatformOpenAI, Credentials: map[string]any{"model_mapping": map[string]any{base: base}}}
+	baseRoute := CompositeModelRoute{ID: 1, GroupID: 7, PublicModel: base, MatchType: CompositeRouteMatchExact, TargetPlatform: PlatformDeepseek, UpstreamModel: base, Endpoint: CompositeRouteEndpointChatCompletions, Enabled: true}
+	aliasRoute := CompositeModelRoute{ID: 2, GroupID: 7, PublicModel: alias, MatchType: CompositeRouteMatchExact, TargetPlatform: PlatformOpenAI, UpstreamModel: "explicit-target", Endpoint: CompositeRouteEndpointChatCompletions, Enabled: true}
+	for _, tc := range []struct {
+		name               string
+		accounts           []Account
+		routes             []CompositeModelRoute
+		platform, upstream string
+	}{
+		{name: "deepseek account ownership", accounts: []Account{deepseek}, platform: PlatformDeepseek, upstream: base},
+		{name: "openai account ownership", accounts: []Account{openai}, platform: PlatformOpenAI, upstream: base},
+		{name: "base route", routes: []CompositeModelRoute{baseRoute}, platform: PlatformDeepseek, upstream: base},
+		{name: "exact alias route wins", routes: []CompositeModelRoute{baseRoute, aliasRoute}, platform: PlatformOpenAI, upstream: "explicit-target"},
+		{name: "ambiguous ownership stays rejected", accounts: []Account{deepseek, openai}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &GatewayService{accountRepo: &compositeOwnershipAccountRepo{accounts: tc.accounts}}
+			resolver := NewCompositeRouteResolver(compositeRouteRepoStub{routes: tc.routes})
+			resolver.SetModelOwnershipResolver(svc.resolveCompositeModelOwnership)
+			decision, err := resolver.Resolve(context.Background(), 7, alias, CompositeRouteEndpointChatCompletions)
+			require.NoError(t, err)
+			require.Equal(t, tc.platform != "", decision.Matched)
+			require.Equal(t, tc.platform, decision.TargetPlatform)
+			require.Equal(t, tc.upstream, decision.UpstreamModel)
+			require.Equal(t, alias, decision.PublicModel)
+		})
+	}
+}
+
 func TestCompositeRouteResolverCodexFilteringMatchesProductionPriority(t *testing.T) {
 	for _, scenario := range []struct {
 		name   string

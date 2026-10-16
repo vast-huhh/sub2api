@@ -164,6 +164,17 @@ func (r *CompositeRouteResolver) Resolve(ctx context.Context, groupID int64, mod
 		}
 	}
 
+	// Chat aliases may be exposed only by their base model in an explicit
+	// route or account mapping. Preserve exact alias ownership/route priority
+	// above, and retain the public alias for request accounting below.
+	if endpoint == CompositeRouteEndpointChatCompletions || endpoint == CompositeRouteEndpointAny {
+		if base, _, ok := splitCNDeepSeekFlashReasoningModel(model); ok {
+			resolved, err := r.Resolve(ctx, groupID, base, endpoint)
+			resolved.PublicModel = model
+			return resolved, err
+		}
+	}
+
 	if platform, ok := DetectModelPlatform(model); ok {
 		return CompositeRouteDecision{
 			Matched:        true,

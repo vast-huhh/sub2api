@@ -15,10 +15,68 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 type compositeRouteRepoStub struct {
 	routes []service.CompositeModelRoute
+}
+
+func TestCompositeTargetPlatformMiddlewareCNDeepSeekFlashReasoningSuffix(t *testing.T) {
+	const base = "cn:deepseek-v4.1-flash"
+	const alias = base + "-max"
+	for _, routeSource := range []string{"account", "explicit"} {
+		for _, explicitEffort := range []string{"", "low"} {
+			t.Run(routeSource+"/"+explicitEffort, func(t *testing.T) {
+				resolver := service.NewCompositeRouteResolver(nil)
+				if routeSource == "account" {
+					resolver.SetModelOwnershipResolver(func(_ context.Context, _ int64, model string) (service.CompositeModelOwnership, error) {
+						return service.CompositeModelOwnership{Matched: model == base, TargetPlatform: service.PlatformDeepseek}, nil
+					})
+				} else {
+					resolver = service.NewCompositeRouteResolver(compositeRouteRepoStub{routes: []service.CompositeModelRoute{{
+						ID: 1, GroupID: 7, PublicModel: base, MatchType: service.CompositeRouteMatchExact,
+						TargetPlatform: service.PlatformDeepseek, UpstreamModel: base,
+						Endpoint: service.CompositeRouteEndpointChatCompletions, Enabled: true,
+					}}})
+				}
+				router := gin.New()
+				router.Use(func(c *gin.Context) {
+					groupID := int64(7)
+					c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+						GroupID: &groupID, Group: &service.Group{ID: groupID, Platform: service.PlatformComposite},
+					})
+					c.Next()
+				})
+				router.Use(compositeTargetPlatformMiddleware(resolver))
+				router.POST("/v1/chat/completions", func(c *gin.Context) {
+					platform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context())
+					require.True(t, ok)
+					require.Equal(t, service.PlatformDeepseek, platform)
+					publicModel, ok := service.RequestedPublicModelFromContext(c.Request.Context())
+					require.True(t, ok)
+					require.Equal(t, alias, publicModel)
+					body, err := io.ReadAll(c.Request.Body)
+					require.NoError(t, err)
+					require.Equal(t, base, gjson.GetBytes(body, "model").String())
+					wantEffort := "max"
+					if explicitEffort != "" {
+						wantEffort = explicitEffort
+					}
+					require.Equal(t, wantEffort, gjson.GetBytes(body, "reasoning_effort").String())
+					account := &service.Account{Platform: service.PlatformDeepseek, Credentials: map[string]any{"model_mapping": map[string]any{base: base}}}
+					require.True(t, account.IsModelSupported(gjson.GetBytes(body, "model").String()))
+					c.Status(http.StatusNoContent)
+				})
+				body := `{"model":"` + alias + `","messages":[],"reasoning_effort":"` + explicitEffort + `"}`
+				request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+				request.Header.Set("Content-Type", "application/json")
+				recorder := httptest.NewRecorder()
+				router.ServeHTTP(recorder, request)
+				require.Equal(t, http.StatusNoContent, recorder.Code)
+			})
+		}
+	}
 }
 
 func (s compositeRouteRepoStub) ListByGroup(ctx context.Context, groupID int64, includeDisabled bool) ([]service.CompositeModelRoute, error) {

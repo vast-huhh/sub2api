@@ -870,6 +870,11 @@ func normalizeRequestedModelForLookup(platform, requestedModel string) string {
 	if platform == PlatformOpenAI {
 		return NormalizeOpenAICompatRequestedModel(trimmed)
 	}
+	if platform == PlatformDeepseek {
+		if base, _, ok := splitCNDeepSeekFlashReasoningModel(trimmed); ok {
+			return base
+		}
+	}
 	if platform != PlatformGemini && platform != PlatformAntigravity {
 		return trimmed
 	}

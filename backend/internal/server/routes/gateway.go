@@ -597,6 +597,11 @@ func compositeTargetPlatformMiddleware(resolver *service.CompositeRouteResolver)
 			if decision.Matched {
 				c.Request = c.Request.WithContext(service.WithCompositeRouteDecision(c.Request.Context(), decision))
 				if upstreamModel := strings.TrimSpace(decision.UpstreamModel); upstreamModel != "" && upstreamModel != model && gjson.ValidBytes(body) {
+					// Save suffix-derived effort before route rewriting removes the
+					// public alias. Explicit request effort still takes precedence.
+					if compositeRouteEndpointForPath(c.Request.URL.Path) == service.CompositeRouteEndpointChatCompletions {
+						body, _ = service.ApplyOpenAIChatCompletionsReasoningSuffix(body)
+					}
 					if _, modelPath := requestmodel.JSONModelPathForRoute(routePath, body); modelPath != "" {
 						if rewritten, rewriteErr := sjson.SetBytes(body, modelPath, upstreamModel); rewriteErr == nil {
 							body = rewritten

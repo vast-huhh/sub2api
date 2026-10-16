@@ -469,30 +469,37 @@ func TestForwardAsRawChatCompletions_CNDeepSeekFlashReasoningSuffix(t *testing.T
 		{"max", "", "max"},
 		{"max", "low", "low"},
 	} {
-		t.Run(tc.suffix+"/"+tc.explicit, func(t *testing.T) {
-			body := []byte(fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hello"}],"reasoning_effort":%q,"stream":false}`, base+"-"+tc.suffix, tc.explicit))
-			// The handler derives effort before account lookup and forwarding.
-			body, _ = ApplyOpenAIChatCompletionsReasoningSuffix(body)
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
-			upstream := &httpUpstreamRecorder{resp: &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(strings.NewReader(`{"id":"chat_cn","model":"cn:deepseek-v4.1-flash","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}`)),
-			}}
-			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-			account := rawChatCompletionsTestAccount()
-			account.Credentials["model_mapping"] = map[string]any{base: base}
-			require.True(t, account.IsModelSupported(base+"-"+tc.suffix))
-			result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
-			require.NoError(t, err)
-			require.NotNil(t, result)
-			require.Equal(t, base, gjson.GetBytes(upstream.lastBody, "model").String())
-			require.Equal(t, tc.want, gjson.GetBytes(upstream.lastBody, "reasoning_effort").String())
-			require.NotNil(t, result.ReasoningEffort)
-			require.Equal(t, tc.want, *result.ReasoningEffort)
-		})
+		for _, platform := range []string{PlatformOpenAI, PlatformDeepseek} {
+			t.Run(platform+"/"+tc.suffix+"/"+tc.explicit, func(t *testing.T) {
+				body := []byte(fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hello"}],"reasoning_effort":%q,"stream":false}`, base+"-"+tc.suffix, tc.explicit))
+				// The handler derives effort before account lookup and forwarding.
+				body, _ = ApplyOpenAIChatCompletionsReasoningSuffix(body)
+				rec := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(rec)
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+				upstream := &httpUpstreamRecorder{resp: &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(`{"id":"chat_cn","model":"cn:deepseek-v4.1-flash","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}`)),
+				}}
+				svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+				account := forceChatResponsesFallbackAccount()
+				account.Platform = platform
+				account.Credentials["api_protocol"] = APIProtocolChatCompletions
+				account.Credentials["model_mapping"] = map[string]any{base: base}
+				require.True(t, account.IsModelSupported(base+"-"+tc.suffix))
+				mapped, matched := account.ResolveMappedModel(base + "-" + tc.suffix)
+				require.True(t, matched)
+				require.Equal(t, base, mapped)
+				result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				require.Equal(t, base, gjson.GetBytes(upstream.lastBody, "model").String())
+				require.Equal(t, tc.want, gjson.GetBytes(upstream.lastBody, "reasoning_effort").String())
+				require.NotNil(t, result.ReasoningEffort)
+				require.Equal(t, tc.want, *result.ReasoningEffort)
+			})
+		}
 	}
 }
 
