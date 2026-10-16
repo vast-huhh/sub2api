@@ -2537,7 +2537,7 @@ onMounted(async () => {
     }
   }
 
-  load()
+  loading.value = true
   loadUpstreamBillingProbeGlobalState()
   const [proxiesResult, groupsResult] = await Promise.allSettled([
     adminAPI.proxies.getAll(),
@@ -2550,9 +2550,15 @@ onMounted(async () => {
   }
   if (groupsResult.status === 'fulfilled') {
     groups.value = groupsResult.value
+    // Resolve the default by name so it works across deployments with different group IDs.
+    const defaultGroup = groups.value.find(group => group.name === 'team')
+    if (defaultGroup && !params.group) {
+      params.group = String(defaultGroup.id)
+    }
   } else {
     console.error('Failed to load groups:', groupsResult.reason)
   }
+  load()
   window.addEventListener('scroll', handleScroll, true)
   window.addEventListener('resize', handleViewportResize)
   document.addEventListener('click', handleClickOutside)
