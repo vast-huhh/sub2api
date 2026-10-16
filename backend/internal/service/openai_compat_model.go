@@ -100,10 +100,32 @@ func applyOpenAICompatModelNormalization(req *apicompat.AnthropicRequest) {
 	req.OutputConfig.Effort = claudeEffort
 }
 
+const cnDeepSeekV41FlashModel = "cn:deepseek-v4.1-flash"
+
+// Keep the cn: namespace for routing. Only this known alias and its supported
+// effort levels are recognized; arbitrary provider model IDs stay untouched.
+func splitCNDeepSeekFlashReasoningModel(model string) (base, effort string, ok bool) {
+	trimmed := strings.TrimSpace(model)
+	separator := strings.LastIndexAny(trimmed, "-_ ")
+	if separator < 0 || !strings.EqualFold(trimmed[:separator], cnDeepSeekV41FlashModel) {
+		return trimmed, "", false
+	}
+	effort = strings.ToLower(trimmed[separator+1:])
+	switch effort {
+	case "low", "high", "max":
+		return trimmed[:separator], effort, true
+	default:
+		return trimmed, "", false
+	}
+}
+
 func splitOpenAICompatReasoningModel(model string) (normalizedModel string, reasoningEffort string, ok bool) {
 	trimmed := strings.TrimSpace(model)
 	if trimmed == "" {
 		return "", "", false
+	}
+	if base, effort, ok := splitCNDeepSeekFlashReasoningModel(trimmed); ok {
+		return base, effort, true
 	}
 
 	modelID := trimmed

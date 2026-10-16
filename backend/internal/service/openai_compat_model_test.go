@@ -179,6 +179,53 @@ func TestApplyOpenAIChatCompletionsReasoningSuffix(t *testing.T) {
 	}
 }
 
+func TestCNDeepSeekFlashReasoningSuffix(t *testing.T) {
+	t.Parallel()
+	const base = "cn:deepseek-v4.1-flash"
+	for _, effort := range []string{"low", "high", "max"} {
+		t.Run(effort, func(t *testing.T) {
+			alias := base + "-" + effort
+			require.Equal(t, base, NormalizeOpenAICompatRequestedModel(alias))
+			require.Equal(t, base, normalizeOpenAIChatCompletionsModelForUpstream(nil, alias))
+			require.Equal(t, effort, deriveOpenAIReasoningEffortFromModel(alias))
+			for _, shape := range []struct{ input, effortPath string }{
+				{`"messages":[]`, "reasoning_effort"},
+				{`"input":"hello"`, "reasoning.effort"},
+			} {
+				body := []byte(fmt.Sprintf(`{"model":%q,%s}`, alias, shape.input))
+				got, changed := ApplyOpenAIChatCompletionsReasoningSuffix(body)
+				require.True(t, changed)
+				require.Equal(t, alias, gjson.GetBytes(got, "model").String(), "keep alias until routing completes")
+				require.Equal(t, effort, gjson.GetBytes(got, shape.effortPath).String())
+				again, changed := ApplyOpenAIChatCompletionsReasoningSuffix(got)
+				require.False(t, changed)
+				require.Equal(t, got, again)
+			}
+			req := &apicompat.AnthropicRequest{Model: alias}
+			applyOpenAICompatModelNormalization(req)
+			require.Equal(t, base, req.Model)
+			require.Equal(t, effort, req.OutputConfig.Effort)
+			require.Equal(t, effort, openAICompatAnthropicReasoningEffort(req, base, effort))
+		})
+	}
+	for _, model := range []string{base, base + "-medium", base + "-xhigh", base + "-max-extra", base + "-vision-max", "other:deepseek-v4.1-flash-max", "cn:deepseek-v4.1-pro-max", "deepseek-v4.1-flash-max"} {
+		require.Equal(t, model, NormalizeOpenAICompatRequestedModel(model))
+		body := []byte(fmt.Sprintf(`{"model":%q,"messages":[]}`, model))
+		got, changed := ApplyOpenAIChatCompletionsReasoningSuffix(body)
+		require.False(t, changed, model)
+		require.Equal(t, body, got)
+	}
+	for _, body := range []string{
+		`{"model":"cn:deepseek-v4.1-flash-max","messages":[],"reasoning_effort":"low"}`,
+		`{"model":"cn:deepseek-v4.1-flash-max","input":"hello","reasoning":{"effort":"high"}}`,
+	} {
+		got, changed := ApplyOpenAIChatCompletionsReasoningSuffix([]byte(body))
+		require.False(t, changed)
+		require.Equal(t, body, string(got))
+	}
+	require.Equal(t, "max", normalizeOpenAIReasoningEffortForModel("max", base))
+}
+
 func TestApplyOpenAICompatModelNormalization(t *testing.T) {
 	t.Parallel()
 

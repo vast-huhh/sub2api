@@ -2585,6 +2585,12 @@ func supportsOpenAIReasoningEffortMax(model string) bool {
 	if isOpenAIGPT6Model(model) || isOpenAIGPT56Model(model) {
 		return true
 	}
+	if strings.EqualFold(strings.TrimSpace(model), cnDeepSeekV41FlashModel) {
+		return true
+	}
+	if _, _, ok := splitCNDeepSeekFlashReasoningModel(model); ok {
+		return true
+	}
 
 	normalized := strings.ToLower(lastOpenAIModelSegment(model))
 	normalized = strings.ReplaceAll(normalized, "_", "-")

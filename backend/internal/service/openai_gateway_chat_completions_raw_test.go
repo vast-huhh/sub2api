@@ -461,6 +461,41 @@ func TestForwardAsRawChatCompletions_NormalizesGLMReasoningEffortForUpstream(t *
 	require.Equal(t, 3.0, reasoningEffortBillingMultiplier(*result.ReasoningEffort, map[string]float64{"xhigh": 2, "max": 3}))
 }
 
+func TestForwardAsRawChatCompletions_CNDeepSeekFlashReasoningSuffix(t *testing.T) {
+	const base = "cn:deepseek-v4.1-flash"
+	for _, tc := range []struct{ suffix, explicit, want string }{
+		{"low", "", "low"},
+		{"high", "", "high"},
+		{"max", "", "max"},
+		{"max", "low", "low"},
+	} {
+		t.Run(tc.suffix+"/"+tc.explicit, func(t *testing.T) {
+			body := []byte(fmt.Sprintf(`{"model":%q,"messages":[{"role":"user","content":"hello"}],"reasoning_effort":%q,"stream":false}`, base+"-"+tc.suffix, tc.explicit))
+			// The handler derives effort before account lookup and forwarding.
+			body, _ = ApplyOpenAIChatCompletionsReasoningSuffix(body)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"id":"chat_cn","model":"cn:deepseek-v4.1-flash","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}`)),
+			}}
+			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+			account := rawChatCompletionsTestAccount()
+			account.Credentials["model_mapping"] = map[string]any{base: base}
+			require.True(t, account.IsModelSupported(base+"-"+tc.suffix))
+			result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Equal(t, base, gjson.GetBytes(upstream.lastBody, "model").String())
+			require.Equal(t, tc.want, gjson.GetBytes(upstream.lastBody, "reasoning_effort").String())
+			require.NotNil(t, result.ReasoningEffort)
+			require.Equal(t, tc.want, *result.ReasoningEffort)
+		})
+	}
+}
+
 func TestForwardAsRawChatCompletions_SilentRefusalTriggersFailover(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
