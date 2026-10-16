@@ -26,6 +26,10 @@ export function getKeyGroupProvider(platform: GroupPlatform): KeyGroupProvider {
   return PROVIDER_BY_PLATFORM[platform] ?? 'other'
 }
 
+export function matchesKeyGroupProvider(platform: GroupPlatform, provider: KeyGroupProvider): boolean {
+  return platform === 'composite' || getKeyGroupProvider(platform) === provider
+}
+
 // Collections use representative provider marks rather than an invented brand logo.
 export const KEY_GROUP_PROVIDER_ICONS: Record<KeyGroupProvider, GroupPlatform[]> = {
   anthropic: ['anthropic'],
