@@ -5999,6 +5999,7 @@
                         :options="[
                           { value: 'brave', label: 'Brave Search' },
                           { value: 'tavily', label: 'Tavily' },
+                          { value: 'deepseek', label: 'DeepSeek' },
                         ]"
                         class="w-36"
                         @click.stop
@@ -6043,6 +6044,9 @@
                     v-if="expandedProviders[pIdx]"
                     class="space-y-3 border-t border-gray-100 px-4 pb-4 pt-3 dark:border-dark-700"
                   >
+                    <p v-if="provider.type === 'deepseek'" class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.webSearchEmulation.deepseekHint") }}
+                    </p>
                     <!-- API Key with inline show/copy -->
                     <div>
                       <label class="text-xs text-gray-500">{{

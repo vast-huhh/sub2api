@@ -22,9 +22,40 @@ func TestValidateWebSearchConfig_Valid(t *testing.T) {
 		Providers: []WebSearchProviderConfig{
 			{Type: "brave", QuotaLimit: int64Ptr(1000)},
 			{Type: "tavily", QuotaLimit: int64Ptr(500)},
+			{Type: "deepseek", QuotaLimit: int64Ptr(1000)},
 		},
 	}
 	require.NoError(t, validateWebSearchConfig(cfg))
+}
+
+func TestSaveWebSearchConfig_DeepSeekPreservesKeyOnUpdate(t *testing.T) {
+	previous := webSearchEmulationCache.Load()
+	t.Cleanup(func() {
+		if previous == nil {
+			clearGlobalWebSearchConfig()
+		} else {
+			webSearchEmulationCache.Store(previous)
+		}
+	})
+	svc := newSettingServiceForWebSearchTest(false)
+	ctx := context.Background()
+	cfg := &WebSearchEmulationConfig{Enabled: true, Providers: []WebSearchProviderConfig{
+		{Type: websearch.ProviderTypeDeepSeek, APIKey: "test-deepseek-key", QuotaLimit: int64Ptr(100)},
+	}}
+	require.NoError(t, svc.SaveWebSearchEmulationConfig(ctx, cfg))
+
+	// Editing quota without re-entering the secret must preserve the saved key.
+	update := &WebSearchEmulationConfig{Enabled: true, Providers: []WebSearchProviderConfig{
+		{Type: websearch.ProviderTypeDeepSeek, QuotaLimit: int64Ptr(200)},
+	}}
+	require.NoError(t, svc.SaveWebSearchEmulationConfig(ctx, update))
+	saved, err := svc.getWebSearchEmulationConfigRaw(ctx)
+	require.NoError(t, err)
+	require.True(t, saved.Enabled)
+	require.Len(t, saved.Providers, 1)
+	require.Equal(t, websearch.ProviderTypeDeepSeek, saved.Providers[0].Type)
+	require.Equal(t, "test-deepseek-key", saved.Providers[0].APIKey)
+	require.Equal(t, int64(200), *saved.Providers[0].QuotaLimit)
 }
 
 func TestValidateWebSearchConfig_TooManyProviders(t *testing.T) {

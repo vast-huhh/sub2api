@@ -598,6 +598,7 @@ export default {
         codexRemoveRow: "Remove",
       },
       webSearchEmulation: {
+        deepseekHint: 'Use an official DeepSeek API key. Queries allow up to 128 characters. Returns search summaries without full page content; longer queries fall back to other configured providers.',
         title: 'Web Search Emulation',
         description: 'Inject web search capability for Anthropic API Key accounts that don\'t natively support it',
         enabled: 'Enable Web Search Emulation',

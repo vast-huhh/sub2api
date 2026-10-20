@@ -591,6 +591,7 @@ export default {
         codexRemoveRow: '删除',
       },
       webSearchEmulation: {
+        deepseekHint: '使用 DeepSeek 官方 API Key。搜索词最多 128 个字符，返回搜索摘要，不抓取全文；长查询会尝试其他已配置服务商。',
         title: 'Web Search 模拟',
         description: '为不原生支持搜索的 Anthropic API Key 账号注入 web search 能力',
         enabled: '启用 Web Search 模拟',
