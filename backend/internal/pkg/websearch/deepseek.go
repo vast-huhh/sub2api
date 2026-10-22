@@ -13,6 +13,7 @@ import (
 
 const (
 	deepSeekSearchEndpoint = "https://api.deepseek.com/v1/tools/search"
+	deepSeekFetchEndpoint  = "https://api.deepseek.com/v1/tools/fetch"
 	deepSeekMaxQueryChars  = 128
 	deepSeekMaxCount       = 50
 )
@@ -32,6 +33,46 @@ func NewDeepSeekProvider(apiKey string, httpClient *http.Client) *DeepSeekProvid
 }
 
 func (p *DeepSeekProvider) Name() string { return ProviderTypeDeepSeek }
+
+// Fetch uses the standalone Fetch API with the same credentials as Search.
+func (p *DeepSeekProvider) Fetch(ctx context.Context, rawURL string) (*Page, error) {
+	u, err := normalizePublicURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	payload, _ := json.Marshal(map[string]string{"url": u})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deepSeekFetchEndpoint, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("deepseek: invalid fetch request")
+	}
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("deepseek: fetch request failed")
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxPageBytes+1))
+	if err != nil || len(data) > maxPageBytes {
+		return nil, fmt.Errorf("deepseek: fetch response unreadable or exceeds size limit")
+	}
+	if resp.StatusCode != http.StatusOK {
+		// Do not expose response bodies or repeat unchanged 4xx requests.
+		return nil, fmt.Errorf("deepseek: fetch returned HTTP %d", resp.StatusCode)
+	}
+	var result struct {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	if json.Unmarshal(data, &result) != nil || strings.TrimSpace(result.Content) == "" {
+		return nil, fmt.Errorf("deepseek: fetch returned no readable page")
+	}
+	if strings.TrimSpace(result.Title) == "" {
+		result.Title = u
+	}
+	return textPage(u, result.Title, result.Content), nil
+}
 
 func (p *DeepSeekProvider) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 	query := strings.TrimSpace(req.Query)

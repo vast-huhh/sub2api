@@ -542,14 +542,16 @@ func TestResponsesToChatCompletionsRequest_NamespaceToolFlattensChildren(t *test
 			Name: "gmail",
 			Tools: []ResponsesTool{
 				{Type: "function", Name: "send", Description: "Send mail", Parameters: json.RawMessage(`{"type":"object","properties":{}}`)},
-				{Type: "custom", Name: "ignored_child"},
+				{Type: "custom", Name: "exec"},
 			},
 		}},
 	}
 
 	out, err := ResponsesToChatCompletionsRequest(req)
 	require.NoError(t, err)
-	require.Len(t, out.Tools, 1, "namespace 子工具中仅 function 类型被摊平")
+	require.Len(t, out.Tools, 2, "namespace function 和 custom 子工具均需保留")
+	assert.Equal(t, "gmail__exec", out.Tools[1].Function.Name)
+	assert.JSONEq(t, customToolInputSchema, string(out.Tools[1].Function.Parameters))
 
 	assert.Equal(t, "gmail__send", out.Tools[0].Function.Name)
 	assert.Equal(t, "Send mail", out.Tools[0].Function.Description)
@@ -767,7 +769,7 @@ func TestNamespaceToolNames_MapsFlattenedNames(t *testing.T) {
 	tools := []ResponsesTool{
 		{Type: "namespace", Name: "gmail", Tools: []ResponsesTool{
 			{Type: "function", Name: "send"},
-			{Type: "custom", Name: "skip_me"},
+			{Type: "custom", Name: "exec"},
 		}},
 		{Type: "namespace", Name: "crm", Children: []ResponsesTool{
 			{Type: "function", Name: "query"},
@@ -776,7 +778,8 @@ func TestNamespaceToolNames_MapsFlattenedNames(t *testing.T) {
 	}
 
 	m := NamespaceToolNames(tools)
-	require.Len(t, m, 2)
+	require.Len(t, m, 3)
+	assert.Equal(t, NamespacedToolName{Namespace: "gmail", Name: "exec", Custom: true}, m["gmail__exec"])
 	assert.Equal(t, NamespacedToolName{Namespace: "gmail", Name: "send"}, m["gmail__send"])
 	assert.Equal(t, NamespacedToolName{Namespace: "crm", Name: "query"}, m["crm__query"])
 
@@ -1163,4 +1166,55 @@ func TestChatCompletionsChunkToResponsesEvents_FunctionToolStreamUnaffected(t *t
 		}
 	}
 	assert.True(t, sawArgsDelta, "function 工具应保持原有参数增量事件")
+}
+
+func TestResponsesChatBridge_NamespacedCustomRoundTrip(t *testing.T) {
+	for _, childrenKey := range []string{"tools", "children"} {
+		t.Run(childrenKey, func(t *testing.T) {
+			var req ResponsesRequest
+			require.NoError(t, json.Unmarshal([]byte(`{"model":"deepseek-test","tools":[{"type":"namespace","name":"functions","`+childrenKey+`":[{"type":"custom","name":"exec"}]}],"tool_choice":{"type":"custom","namespace":"functions","name":"exec"},"input":[{"type":"custom_tool_call","namespace":"functions","name":"exec","call_id":"call_previous","input":"text(1)"},{"type":"custom_tool_call_output","call_id":"call_previous","output":"1"}]}`), &req))
+			chat, err := ResponsesToChatCompletionsRequest(&req)
+			require.NoError(t, err)
+			require.Len(t, chat.Tools, 1)
+			assert.Equal(t, "functions__exec", chat.Tools[0].Function.Name)
+			assert.JSONEq(t, customToolInputSchema, string(chat.Tools[0].Function.Parameters))
+			assert.JSONEq(t, `{"type":"function","function":{"name":"functions__exec"}}`, string(chat.ToolChoice))
+			require.NotEmpty(t, chat.Messages[0].ToolCalls)
+			assert.Equal(t, "functions__exec", chat.Messages[0].ToolCalls[0].Function.Name)
+			ns := NamespaceToolNames(req.Tools)
+			call := ChatToolCall{ID: "call_new", Function: ChatFunctionCall{Name: "functions__exec", Arguments: `{"input":"text(await tools.web__run({search_query:[{q:'mail server'}]}))"}`}}
+			response := ChatCompletionsResponseToResponses(&ChatCompletionsResponse{Choices: []ChatChoice{{Message: ChatMessage{ToolCalls: []ChatToolCall{call}}}}}, req.Model, nil, nil, false, ns)
+			require.Len(t, response.Output, 1)
+			item := response.Output[0]
+			assert.Equal(t, "custom_tool_call", item.Type)
+			assert.Equal(t, "exec", item.Name)
+			assert.Equal(t, "functions", item.Namespace)
+			wire, err := json.Marshal(item)
+			require.NoError(t, err)
+			assert.Contains(t, string(wire), `"namespace":"functions"`)
+			state := NewChatCompletionsToResponsesStreamState(req.Model)
+			state.NamespaceTools = ns
+			index := 0
+			call.Index = &index
+			events := ChatCompletionsChunkToResponsesEvents(&ChatCompletionsChunk{Choices: []ChatChunkChoice{{Delta: ChatDelta{ToolCalls: []ChatToolCall{call}}}}}, state)
+			events = append(events, FinalizeChatCompletionsResponsesStream(state)...)
+			seen := 0
+			for _, event := range events {
+				if event.Item != nil && event.Item.CallID == call.ID {
+					seen++
+					assert.Equal(t, "custom_tool_call", event.Item.Type)
+					assert.Equal(t, "exec", event.Item.Name)
+					assert.Equal(t, "functions", event.Item.Namespace)
+					wire, err := ResponsesEventToSSE(event)
+					require.NoError(t, err)
+					assert.Contains(t, wire, `"namespace":"functions"`)
+				}
+			}
+			assert.Equal(t, 2, seen)
+			final := events[len(events)-1]
+			require.Equal(t, "response.completed", final.Type)
+			require.Len(t, final.Response.Output, 1)
+			assert.Equal(t, "functions", final.Response.Output[0].Namespace)
+		})
+	}
 }

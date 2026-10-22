@@ -30,13 +30,23 @@ func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Co
 	if s == nil || c == nil || account == nil {
 		return nil, fmt.Errorf("service, context, and account are required")
 	}
-	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {
-		return nil, err
-	}
 	modelResult := gjson.GetBytes(body, "model")
 	requestedModel := strings.TrimSpace(modelResult.String())
 	if modelResult.Type != gjson.String || requestedModel == "" {
 		return nil, fmt.Errorf("model is required")
+	}
+	if hasEmulatedWebReference(body) && s.responsesSearchEnabled(ctx, c, account) {
+		return s.forwardAlphaSearchEmulated(ctx, c, account, body, doWebSearch)
+	}
+	if account.Platform != PlatformOpenAI {
+		if !account.IsOpenAICompatible() || !s.responsesSearchEnabled(ctx, c, account) {
+			writeOpenAIResponsesFallbackError(c, http.StatusForbidden, "permission_error", "Simulated alpha search is disabled for this account or channel")
+			return nil, nil
+		}
+		return s.forwardAlphaSearchEmulated(ctx, c, account, body, doWebSearch)
+	}
+	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {
+		return nil, err
 	}
 
 	upstreamModel := normalizeOpenAIModelForUpstream(account, account.GetMappedModel(requestedModel))
@@ -90,6 +100,9 @@ func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Co
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
+		if isAlphaSearchEmulationFallbackError(resp.StatusCode, respBody) && s.responsesSearchEnabled(ctx, c, account) {
+			return s.forwardAlphaSearchEmulated(ctx, c, account, ReplaceModelInBody(body, requestedModel), doWebSearch)
+		}
 		upstreamMessage := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
 		if s.shouldFailoverOpenAIUpstreamResponse(account, resp.StatusCode, upstreamMessage, respBody) ||
 			isOpenAIAlphaSearchEndpointUnsupported(account, resp.StatusCode) {
@@ -174,6 +187,9 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
+		if isAlphaSearchEmulationFallbackError(resp.StatusCode, respBody) && s.responsesSearchEnabled(ctx, c, account) {
+			return s.forwardAlphaSearchEmulated(ctx, c, account, ReplaceModelInBody(alphaBody, requestedModel), doWebSearch)
+		}
 		upstreamMessage := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
 		if s.shouldFailoverOpenAIUpstreamResponse(account, resp.StatusCode, upstreamMessage, respBody) {
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))

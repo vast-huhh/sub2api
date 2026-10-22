@@ -30,7 +30,8 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
-	if apiKey.Group.Platform != service.PlatformOpenAI && apiKey.Group.Platform != service.PlatformComposite {
+	if apiKey.Group.Platform != service.PlatformOpenAI && apiKey.Group.Platform != service.PlatformComposite &&
+		!(h.gatewayService != nil && h.gatewayService.IsAlphaSearchEmulationAvailable(c.Request.Context()) && (&service.Account{Platform: apiKey.Group.Platform}).IsOpenAICompatible()) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Codex alpha search is only available for OpenAI and Composite groups")
 		return
 	}
@@ -75,9 +76,19 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		return
 	}
 	requestedModel := strings.TrimSpace(modelResult.String())
-	if !compositeTargetPlatformAllowed(c, apiKey, requestedModel, service.PlatformOpenAI) {
+	if !compositeTargetPlatformAllowed(c, apiKey, requestedModel, service.PlatformOpenAI) &&
+		!(h.gatewayService.IsAlphaSearchEmulationAvailable(c.Request.Context()) && openAICompatibleTextTargetAllowed(c, apiKey, requestedModel)) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Codex alpha search only supports OpenAI models for Composite groups")
 		return
+	}
+	requestPlatform := effectiveAPIKeyPlatform(c, apiKey)
+	requiredCapability := service.OpenAIEndpointCapabilityAlphaSearch
+	requiredTransport := service.OpenAIUpstreamTransportHTTPSSE
+	if requestPlatform != service.PlatformOpenAI {
+		// Keep normal group/model/account eligibility checks. The selected compatible
+		// account supplies routing and billing identity; search runs on the provider.
+		requiredCapability = service.OpenAIEndpointCapabilityChatCompletions
+		requiredTransport = service.OpenAIUpstreamTransportAny
 	}
 	reqLog = reqLog.With(zap.String("model", requestedModel))
 	setOpsRequestContext(c, requestedModel, false)
@@ -110,7 +121,11 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	}
 
 	// 余额模式在途预留（与计费同口径估算；计费任务扣减余额缓存后才释放）。
-	inflightDone, inflightErr := reserveInflightBalance(c, h.billingCacheService, h.gatewayService, apiKey, subscription, service.InflightEstimateRequest{Model: requestedModel, BodyBytes: len(body), MaxTokens: requestMaxOutputTokens(body), Kind: service.InflightEstimateToken, SearchCalls: 1})
+	estimateKind := service.InflightEstimateAlphaSearch
+	if requestPlatform != service.PlatformOpenAI && len(gjson.GetBytes(body, "commands.search_query").Array()) == 0 {
+		estimateKind = service.InflightEstimateWebRead
+	}
+	inflightDone, inflightErr := reserveInflightBalance(c, h.billingCacheService, h.gatewayService, apiKey, subscription, service.InflightEstimateRequest{Model: requestedModel, Kind: estimateKind, Units: service.AlphaSearchReservationCalls(body)})
 	if inflightErr != nil {
 		status, code, message, retryAfter := billingErrorDetails(inflightErr)
 		if retryAfter > 0 {
@@ -144,12 +159,12 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			sessionHash,
 			requestedModel,
 			failedAccountIDs,
-			service.OpenAIUpstreamTransportHTTPSSE,
-			service.OpenAIEndpointCapabilityAlphaSearch,
+			requiredTransport,
+			requiredCapability,
 			false,
 			false,
 			false,
-			service.PlatformOpenAI,
+			requestPlatform,
 		)
 		if err != nil || selection == nil || selection.Account == nil {
 			if failoverClientGone(c) {
@@ -157,7 +172,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 				return
 			}
 			if len(failedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestedModel, requestedModel, service.PlatformOpenAI)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestedModel, requestedModel, requestPlatform)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -272,7 +287,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	}
 }
 
-// recordAlphaSearchUsage 为一次成功的 alpha/search 网页搜索落按次计费用量行
+// recordAlphaSearchUsage 为成功的 alpha/search（含模拟搜索批次）落按次计费用量行
 // （上游不返回 usage 字段，按 WebSearchCalls 走分组单价 × 倍率的按次口径）。
 // 与 images 一致使用 mandatory 池提交，池满时同步兜底执行，保证扣费不丢。
 func (h *OpenAIGatewayHandler) recordAlphaSearchUsage(

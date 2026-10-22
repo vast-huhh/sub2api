@@ -37,6 +37,8 @@ type Manager struct {
 
 	clientMu    sync.Mutex
 	clientCache map[string]*http.Client
+	readerOnce  sync.Once
+	reader      *Reader
 }
 
 // Timeout constants for proxy and search operations.
@@ -527,4 +529,10 @@ func addMonthsClamped(t time.Time, months int) time.Time {
 		d = lastDay
 	}
 	return time.Date(targetYear, targetMonth, d, 0, 0, 0, 0, time.UTC)
+}
+
+// Reader shares page snapshots across requests and gateway instances via Redis.
+func (m *Manager) Reader() *Reader {
+	m.readerOnce.Do(func() { m.reader = NewReader(m.redis, m.fetchPage) })
+	return m.reader
 }

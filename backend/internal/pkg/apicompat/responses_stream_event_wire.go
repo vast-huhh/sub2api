@@ -23,6 +23,12 @@ import "encoding/json"
 // events.
 func (e ResponsesStreamEvent) MarshalJSON() ([]byte, error) {
 	switch e.Type {
+	case "response.web_search_call.in_progress", "response.web_search_call.searching", "response.web_search_call.completed", "response.web_search_call.failed":
+		m := e.wireBase()
+		e.putItemID(m)
+		m["output_index"] = e.OutputIndex
+		return json.Marshal(m)
+
 	case "response.output_text.delta", "response.output_text.done":
 		m := e.wireBase()
 		e.putItemID(m)
@@ -168,6 +174,10 @@ func responsesItemWire(item *ResponsesOutput) map[string]any {
 		m["status"] = item.Status
 	}
 	switch item.Type {
+	case "web_search_call":
+		if item.Action != nil {
+			m["action"] = item.Action
+		}
 	case "message":
 		role := item.Role
 		if role == "" {
@@ -195,6 +205,9 @@ func responsesItemWire(item *ResponsesOutput) map[string]any {
 		m["call_id"] = item.CallID
 		m["name"] = item.Name
 		m["input"] = item.Input
+		if item.Namespace != "" {
+			m["namespace"] = item.Namespace
+		}
 	case "tool_search_call":
 		// tool_search 调用还原项：execution 必须为 "client"（否则 codex 忽略该
 		// 调用），arguments 在线上是 JSON 对象而非字符串。

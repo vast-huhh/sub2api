@@ -288,9 +288,15 @@ type OpenAIForwardResult struct {
 	VideoResolution       string
 	// VideoDurationSeconds 是提交时请求的生成时长（xAI 按输出秒数计费），已归一化到 1-15 秒。
 	VideoDurationSeconds int
-	// WebSearchCalls 是 Codex alpha/search 网页搜索调用次数（每次成功请求为 1）。
+	// WebSearchCalls 是 Codex alpha/search 搜索计费次数：原生成功请求为 1，
+	// 模拟搜索为本批成功的提供商查询数，不叠加模型 token 费用。
 	// 上游不返回 usage 字段，>0 时走按次计费（分组单价 × 次数 × 倍率）。
 	WebSearchCalls int
+	// EmulatedWebSearchCalls is additive to model tokens (unlike standalone alpha/search).
+	EmulatedWebSearchCalls int
+	// Standalone simulated web reads have no token or search charge.
+	EmulatedWebOperations                           bool
+	WebReadCalls, WebExtractCalls, WebReadCacheHits int
 	// SearchCount is Grok-native web_search / tool search call count (per 1k pricing).
 	SearchCount int
 	// AudioUsage carries Voice billing units when present.

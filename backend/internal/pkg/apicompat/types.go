@@ -498,9 +498,17 @@ func (o *ResponsesOutput) UnmarshalJSON(data []byte) error {
 }
 
 // WebSearchAction describes the search action in a web_search_call output item.
+type WebSearchSource struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
 type WebSearchAction struct {
-	Type  string `json:"type,omitempty"`  // "search"
-	Query string `json:"query,omitempty"` // primary search query
+	URL     string            `json:"url,omitempty"`
+	Pattern string            `json:"pattern,omitempty"`
+	Sources []WebSearchSource `json:"sources,omitempty"`
+	Type    string            `json:"type,omitempty"`  // "search"
+	Query   string            `json:"query,omitempty"` // primary search query
 }
 
 // ResponsesSummary is a summary text block inside a reasoning output.

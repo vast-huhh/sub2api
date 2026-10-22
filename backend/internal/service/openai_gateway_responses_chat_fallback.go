@@ -52,6 +52,14 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return nil, fmt.Errorf("resolve responses tools: %w", err)
 	}
+	var searchPlan *responsesSearchPlan
+	if s.responsesSearchEnabled(ctx, c, account) {
+		searchPlan, err = prepareResponsesSearch(&responsesReq, effectiveTools, body)
+		if err != nil {
+			writeOpenAIResponsesFallbackError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, err
+		}
+	}
 	customTools := apicompat.CustomToolNames(effectiveTools)
 	functionTools := apicompat.FunctionToolNames(effectiveTools)
 	toolSearch := apicompat.HasToolSearchTool(effectiveTools)
@@ -115,6 +123,11 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		zap.Bool("stream", clientStream),
 	)
 	SetOpsUpstreamModel(c, upstreamModel)
+
+	if searchPlan != nil {
+		searchPlan.scope = webReadScope(c, body)
+		return s.forwardResponsesWithSearch(ctx, c, account, chatBody, searchPlan, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, clientStream, startTime, doWebSearch)
+	}
 
 	// Build and send upstream request via the shared CC pipeline
 	apiKey, targetURL, err := s.resolveCCFallbackTarget(account)
