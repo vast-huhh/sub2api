@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -47,6 +48,9 @@ type BalanceCardPlan struct {
 	ID               int64     `json:"id"`
 	Name             string    `json:"name"`
 	Description      string    `json:"description"`
+	PriceCNY         float64   `json:"price_cny"`
+	ForSale          bool      `json:"for_sale"`
+	PurchaseURL      string    `json:"purchase_url"`
 	CardType         string    `json:"card_type"`
 	ValidityDays     int       `json:"validity_days"`
 	DailyQuotaUSD    float64   `json:"daily_quota_usd"`
@@ -383,18 +387,21 @@ func (s *BalanceCardWalletSnapshot) CanAdvanceReset(now time.Time) bool {
 }
 
 type CreateBalanceCardPlanInput struct {
-	Name             string  `json:"name"`
-	Description      string  `json:"description"`
-	CardType         string  `json:"card_type"`
-	ValidityDays     int     `json:"validity_days"`
-	DailyQuotaUSD    float64 `json:"daily_quota_usd"`
-	WeeklyQuotaUSD   float64 `json:"weekly_quota_usd"`
-	MonthlyQuotaUSD  float64 `json:"monthly_quota_usd"`
-	FallbackDefault  bool    `json:"fallback_default"`
-	AutoResetDefault bool    `json:"auto_reset_default"`
-	MaxResetCount    int     `json:"max_reset_count"`
-	Status           string  `json:"status"`
-	SortOrder        int     `json:"sort_order"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	PriceCNY         *float64 `json:"price_cny"`
+	ForSale          *bool    `json:"for_sale"`
+	PurchaseURL      *string  `json:"purchase_url"`
+	CardType         string   `json:"card_type"`
+	ValidityDays     int      `json:"validity_days"`
+	DailyQuotaUSD    float64  `json:"daily_quota_usd"`
+	WeeklyQuotaUSD   float64  `json:"weekly_quota_usd"`
+	MonthlyQuotaUSD  float64  `json:"monthly_quota_usd"`
+	FallbackDefault  bool     `json:"fallback_default"`
+	AutoResetDefault bool     `json:"auto_reset_default"`
+	MaxResetCount    int      `json:"max_reset_count"`
+	Status           string   `json:"status"`
+	SortOrder        int      `json:"sort_order"`
 }
 
 type UpdateBalanceCardPlanInput = CreateBalanceCardPlanInput
@@ -461,6 +468,26 @@ func normalizeBalanceCardPlanInput(input *CreateBalanceCardPlanInput) error {
 	input.Description = strings.TrimSpace(input.Description)
 	input.CardType = strings.ToLower(strings.TrimSpace(input.CardType))
 	input.Status = strings.ToLower(strings.TrimSpace(input.Status))
+	if input.PriceCNY == nil {
+		input.PriceCNY = new(float64)
+	}
+	if input.ForSale == nil {
+		input.ForSale = new(bool)
+	}
+	if input.PurchaseURL == nil {
+		input.PurchaseURL = new(string)
+	}
+	*input.PurchaseURL = strings.TrimSpace(*input.PurchaseURL)
+	if *input.PurchaseURL != "" {
+		parsed, err := url.Parse(*input.PurchaseURL)
+		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Hostname() == "" || parsed.User != nil || len(*input.PurchaseURL) > 2048 {
+			return ErrBalanceCardInvalidInput
+		}
+	}
+	price := *input.PriceCNY
+	if math.IsNaN(price) || math.IsInf(price, 0) || price < 0 || price > 9999999999.99 || price != math.Round(price*100)/100 || (*input.ForSale && price <= 0) {
+		return ErrBalanceCardInvalidInput
+	}
 	if input.CardType == "" {
 		input.CardType = BalanceCardTypeCustom
 	}
@@ -508,13 +535,64 @@ func (s *BalanceCardService) CreatePlan(ctx context.Context, input *CreateBalanc
 }
 
 func (s *BalanceCardService) UpdatePlan(ctx context.Context, id int64, input *UpdateBalanceCardPlanInput) (*BalanceCardPlan, error) {
-	if id <= 0 {
+	if id <= 0 || input == nil {
 		return nil, ErrBalanceCardInvalidInput
+	}
+	// Older clients do not send product fields; keep their existing values.
+	if input.PriceCNY == nil || input.ForSale == nil || input.PurchaseURL == nil {
+		current, err := s.repo.GetPlan(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if input.PriceCNY == nil {
+			input.PriceCNY = &current.PriceCNY
+		}
+		if input.ForSale == nil {
+			input.ForSale = &current.ForSale
+		}
+		if input.PurchaseURL == nil {
+			input.PurchaseURL = &current.PurchaseURL
+		}
 	}
 	if err := normalizeBalanceCardPlanInput(input); err != nil {
 		return nil, err
 	}
 	return s.repo.UpdatePlan(ctx, id, input)
+}
+
+// BalanceCardProduct contains the plan details shown in the user shop.
+type BalanceCardProduct struct {
+	ID              int64   `json:"id"`
+	Name            string  `json:"name"`
+	Description     string  `json:"description"`
+	PriceCNY        float64 `json:"price_cny"`
+	PurchaseURL     string  `json:"purchase_url"`
+	CardType        string  `json:"card_type"`
+	ValidityDays    int     `json:"validity_days"`
+	DailyQuotaUSD   float64 `json:"daily_quota_usd"`
+	WeeklyQuotaUSD  float64 `json:"weekly_quota_usd"`
+	MonthlyQuotaUSD float64 `json:"monthly_quota_usd"`
+	MaxResetCount   int     `json:"max_reset_count"`
+}
+
+func (s *BalanceCardService) ListProducts(ctx context.Context) ([]BalanceCardProduct, error) {
+	plans, err := s.repo.ListPlans(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	products := make([]BalanceCardProduct, 0, len(plans))
+	for _, p := range plans {
+		if p.Status != StatusActive || !p.ForSale || p.PriceCNY <= 0 {
+			continue
+		}
+		products = append(products, BalanceCardProduct{
+			ID: p.ID, Name: p.Name, Description: p.Description, PriceCNY: p.PriceCNY, PurchaseURL: p.PurchaseURL,
+			CardType: p.CardType, ValidityDays: p.ValidityDays,
+			DailyQuotaUSD: p.DailyQuotaUSD, WeeklyQuotaUSD: p.WeeklyQuotaUSD,
+			MonthlyQuotaUSD: p.MonthlyQuotaUSD, MaxResetCount: p.MaxResetCount,
+		})
+	}
+	return products, nil
 }
 
 func (s *BalanceCardService) Assign(ctx context.Context, input *AssignBalanceCardInput) (*UserBalanceCard, error) {

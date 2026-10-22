@@ -5,6 +5,8 @@ import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
+import BalanceCardShop from '@/components/payment/BalanceCardShop.vue'
+import BalanceRechargeShop from '@/components/payment/BalanceRechargeShop.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
 import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
@@ -829,26 +831,40 @@ describe('PaymentView subscription feature flag', () => {
     return wrapper
       .findAll('button')
       .map((button) => button.text())
-      .filter((text) => text === 'payment.tabTopUp' || text === 'payment.tabSubscribe')
+      .filter((text) => ['payment.tabTopUp', 'balanceCards.shop.title', 'payment.tabSubscribe'].includes(text))
   }
 
-  it('keeps the top-up / subscribe switcher when subscription_enabled is absent (opt-out default)', async () => {
+  it('shows configured recharge products alongside online payment and respects the product visibility switch', async () => {
+    appStoreState.setPublicSettings({ subscription_enabled: false })
+    const visible = await mountSubscriptionConfirm({ checkout: { manual_recharge_enabled: true } })
+    expect(visible.findComponent(BalanceRechargeShop).exists()).toBe(true)
+    expect(visible.findComponent(AmountInput).exists()).toBe(true)
+    visible.unmount()
+
+    const hidden = await mountSubscriptionConfirm({ checkout: { manual_recharge_enabled: false } })
+    expect(hidden.findComponent(BalanceRechargeShop).exists()).toBe(false)
+    expect(hidden.findComponent(AmountInput).exists()).toBe(true)
+    expect(createOrder).not.toHaveBeenCalled()
+    hidden.unmount()
+  })
+
+  it('offers recharge, balance-card plans and subscriptions by default', async () => {
     const wrapper = await mountSubscriptionPlanList(2)
 
-    expect(tabLabels(wrapper)).toEqual(['payment.tabTopUp', 'payment.tabSubscribe'])
+    expect(tabLabels(wrapper)).toEqual(['payment.tabTopUp', 'balanceCards.shop.title', 'payment.tabSubscribe'])
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(2)
   })
 
-  it('drops the subscribe tab, hides the switcher and ignores ?tab=subscription when subscriptions are disabled', async () => {
+  it('keeps recharge and balance-card plans when subscriptions are disabled', async () => {
     appStoreState.setPublicSettings({ subscription_enabled: false })
     const wrapper = await mountSubscriptionPlanList(2)
 
-    expect(tabLabels(wrapper)).toEqual([])
+    expect(tabLabels(wrapper)).toEqual(['payment.tabTopUp', 'balanceCards.shop.title'])
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
     expect(wrapper.text()).toContain('payment.rechargeAccount')
   })
 
-  it('shows an unavailable notice instead of a doomed top-up form when balance recharge is disabled too', async () => {
+  it('keeps the balance-card shop available when recharge and subscriptions are disabled', async () => {
     appStoreState.setPublicSettings({ subscription_enabled: false })
     const wrapper = await mountSubscriptionConfirm({ checkout: { balance_disabled: true } })
 
@@ -856,7 +872,7 @@ describe('PaymentView subscription feature flag', () => {
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
     expect(wrapper.text()).not.toContain('payment.confirmSubscription')
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
-    expect(wrapper.text()).toContain('payment.billingUnavailable')
+    expect(wrapper.findComponent(BalanceCardShop).exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -867,22 +883,25 @@ describe('PaymentView subscription feature flag', () => {
     appStoreState.setPublicSettings({ subscription_enabled: false })
     await flushPromises()
 
-    expect(tabLabels(wrapper)).toEqual([])
+    expect(tabLabels(wrapper)).toEqual(['payment.tabTopUp', 'balanceCards.shop.title'])
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
     expect(wrapper.text()).toContain('payment.rechargeAccount')
     wrapper.unmount()
   })
 
-  it('enters the subscribe tab when a subscription-only site turns subscriptions back on', async () => {
+  it('preserves the balance-card shop selection when subscriptions are enabled', async () => {
     appStoreState.setPublicSettings({ subscription_enabled: false })
     const wrapper = await mountSubscriptionConfirm({ checkout: { balance_disabled: true } })
-    expect(wrapper.text()).toContain('payment.billingUnavailable')
+    expect(wrapper.findComponent(BalanceCardShop).exists()).toBe(true)
 
     appStoreState.setPublicSettings({ subscription_enabled: true })
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('payment.billingUnavailable')
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+    expect(wrapper.findComponent(BalanceCardShop).exists()).toBe(true)
+    const subscribeTab = wrapper.findAll('button').find(button => button.text() === 'payment.tabSubscribe')
+    await subscribeTab!.trigger('click')
     expect(wrapper.findAllComponents(SubscriptionPlanCard).length).toBeGreaterThan(0)
     wrapper.unmount()
   })

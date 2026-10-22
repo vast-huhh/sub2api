@@ -198,6 +198,7 @@ export default {
     mySubscriptions: '我的订阅',
     myBalanceCards: '我的余额卡',
     balanceCards: '余额卡管理',
+    rechargeProducts: '余额充值商品管理',
     buySubscription: '充值/订阅',
     recharge: '充值',
     subscribe: '订阅',

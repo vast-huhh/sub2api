@@ -198,6 +198,7 @@ export default {
     mySubscriptions: 'My Subscriptions',
     myBalanceCards: 'My Balance Cards',
     balanceCards: 'Balance Cards',
+    rechargeProducts: 'Balance Recharge Products',
     buySubscription: 'Recharge / Subscription',
     recharge: 'Recharge',
     subscribe: 'Subscription',

@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import BalanceCardsView from '@/views/admin/BalanceCardsView.vue'
 
-const { listPlans, listCards, deleteCard, showSuccess, showError } = vi.hoisted(() => ({
+const { listPlans, listCards, deleteCard, createPlan, updatePlan, showSuccess, showError } = vi.hoisted(() => ({
   listPlans: vi.fn(),
   listCards: vi.fn(),
   deleteCard: vi.fn(),
+  createPlan: vi.fn(),
+  updatePlan: vi.fn(),
   showSuccess: vi.fn(),
   showError: vi.fn()
 }))
@@ -20,8 +22,8 @@ vi.mock('@/api/admin', () => ({
       delete: deleteCard,
       assign: vi.fn(),
       bulkAssign: vi.fn(),
-      createPlan: vi.fn(),
-      updatePlan: vi.fn(),
+      createPlan,
+      updatePlan,
       extend: vi.fn(),
       resetDaily: vi.fn(),
       revoke: vi.fn(),
@@ -115,5 +117,47 @@ describe('BalanceCardsView delete action', () => {
     expect(deleteCard).toHaveBeenCalledWith(1)
     expect(listCards).toHaveBeenCalledTimes(2)
     expect(showSuccess).toHaveBeenCalledWith('balanceCards.admin.deleteSuccess')
+  })
+
+  it('saves store settings and allows unlisting without clearing the price or store link', async () => {
+    const wrapper = mount(BalanceCardsView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub, BaseDialog: BaseDialogStub,
+          BalanceCardUserSelector: true, Icon: true, RouterLink: true
+        }
+      }
+    })
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'balanceCards.admin.plans')!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === 'balanceCards.admin.createPlan')!.trigger('click')
+
+    const inputFor = (label: string) => wrapper.findAll('label').find(item => item.text() === label)!.get('input')
+    await inputFor('common.name').setValue('Monthly shop card')
+    await inputFor('balanceCards.admin.priceCNY').setValue('22.50')
+    await inputFor('balanceCards.admin.purchaseURL').setValue('https://store.example/card?id=3')
+    await inputFor('balanceCards.admin.forSale').setValue(true)
+    const saved = {
+      id: 3, name: 'Monthly shop card', description: '', price_cny: 22.5, for_sale: true,
+      purchase_url: 'https://store.example/card?id=3', card_type: 'month', validity_days: 30,
+      daily_quota_usd: 10, weekly_quota_usd: 50, monthly_quota_usd: 200,
+      fallback_default: true, auto_reset_default: false, max_reset_count: 20, status: 'active', sort_order: 0
+    }
+    listPlans.mockResolvedValue([saved])
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
+      price_cny: 22.5, for_sale: true, purchase_url: 'https://store.example/card?id=3'
+    }))
+    expect(wrapper.text()).toContain('balanceCards.admin.onSale')
+
+    await wrapper.findAll('button').find(button => button.text() === 'common.edit')!.trigger('click')
+    await inputFor('balanceCards.admin.forSale').setValue(false)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(updatePlan).toHaveBeenCalledWith(3, expect.objectContaining({
+      price_cny: 22.5, for_sale: false, purchase_url: 'https://store.example/card?id=3'
+    }))
+    expect(showError).not.toHaveBeenCalled()
   })
 })

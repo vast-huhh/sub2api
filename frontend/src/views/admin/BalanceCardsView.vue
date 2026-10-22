@@ -7,6 +7,7 @@
           <button class="rounded-lg px-4 py-2 text-sm font-medium" :class="tab === 'plans' ? activeTabClass : inactiveTabClass" @click="tab = 'plans'">{{ t('balanceCards.admin.plans') }}</button>
         </div>
         <div class="flex gap-2">
+          <RouterLink v-if="tab === 'plans'" to="/purchase?tab=balance-card" class="btn btn-secondary">{{ t('balanceCards.admin.previewShop') }}</RouterLink>
           <button class="btn btn-secondary" @click="refresh"><Icon name="refresh" size="md" /></button>
           <button v-if="tab === 'cards'" class="btn btn-primary" @click="openAssign"><Icon name="plus" size="md" class="mr-2" />{{ t('balanceCards.admin.assign') }}</button>
           <button v-else class="btn btn-primary" @click="openPlan()"><Icon name="plus" size="md" class="mr-2" />{{ t('balanceCards.admin.createPlan') }}</button>
@@ -60,6 +61,10 @@
         <article v-for="plan in plans" v-else :key="plan.id" class="card p-5">
           <div class="flex items-start justify-between"><div><h3 class="font-semibold text-gray-900 dark:text-white">{{ plan.name }}</h3><p class="mt-1 text-xs text-gray-500">{{ t(`balanceCards.types.${plan.card_type}`) }}</p></div><span class="rounded-full px-2 py-1 text-xs" :class="plan.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">{{ t(`common.${plan.status}`) }}</span></div>
           <p class="mt-4 min-h-10 text-sm text-gray-500 dark:text-dark-400">{{ plan.description || '-' }}</p>
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xl font-semibold text-primary-600 dark:text-primary-400">{{ plan.price_cny ? formatPaymentAmount(plan.price_cny, 'CNY') : t('balanceCards.admin.noPrice') }}</span>
+            <span class="rounded-full px-2 py-1 text-xs" :class="plan.for_sale && plan.status === 'active' ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-dark-700'">{{ plan.for_sale && plan.status === 'active' ? t('balanceCards.admin.onSale') : t('balanceCards.admin.offSale') }}</span>
+          </div>
 	          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-xs text-gray-400">{{ t('balanceCards.admin.validity') }}</dt><dd class="mt-1 font-medium">{{ plan.validity_days }} {{ t('balanceCards.days') }}</dd></div><div><dt class="text-xs text-gray-400">{{ t('balanceCards.admin.dailyQuota') }}</dt><dd class="mt-1 font-medium">{{ quotaDisplay(plan.daily_quota_usd) }}</dd></div><div v-if="plan.card_type === 'week' || plan.card_type === 'month'"><dt class="text-xs text-gray-400">{{ plan.card_type === 'week' ? t('balanceCards.weekCardTotal') : t('balanceCards.weekQuota') }}</dt><dd class="mt-1 font-medium">{{ quotaDisplay(plan.weekly_quota_usd) }}</dd></div><div v-if="plan.card_type === 'month'"><dt class="text-xs text-gray-400">{{ t('balanceCards.monthCardTotal') }}</dt><dd class="mt-1 font-medium">{{ quotaDisplay(plan.monthly_quota_usd) }}</dd></div><div><dt class="text-xs text-gray-400">{{ t('balanceCards.fallback') }}</dt><dd class="mt-1">{{ plan.fallback_default ? t('common.enabled') : t('common.disabled') }}</dd></div><div><dt class="text-xs text-gray-400">{{ t('balanceCards.autoReset') }}</dt><dd class="mt-1">{{ plan.auto_reset_default ? t('common.enabled') : t('common.disabled') }}</dd></div></dl>
           <button class="btn btn-secondary mt-5 w-full" @click="openPlan(plan)">{{ t('common.edit') }}</button>
         </article>
@@ -70,6 +75,12 @@
       <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="savePlan">
         <label class="sm:col-span-2"><span class="input-label">{{ t('common.name') }}</span><input v-model.trim="planForm.name" class="input" required maxlength="100" /></label>
         <label class="sm:col-span-2"><span class="input-label">{{ t('balanceCards.admin.planDescription') }}</span><textarea v-model="planForm.description" class="input min-h-20" /></label>
+        <div class="grid gap-4 rounded-xl border border-primary-100 bg-primary-50/40 p-4 dark:border-primary-900/30 dark:bg-primary-900/10 sm:col-span-2 sm:grid-cols-2">
+          <label><span class="input-label">{{ t('balanceCards.admin.priceCNY') }}</span><input v-model.number="planForm.price_cny" class="input" type="number" :min="planForm.for_sale ? 0.01 : 0" max="9999999999.99" step="0.01" :required="planForm.for_sale" /></label>
+          <label class="flex items-center gap-3"><input v-model="planForm.for_sale" type="checkbox" class="h-5 w-5 rounded text-primary-600" /><span class="text-sm">{{ t('balanceCards.admin.forSale') }}</span></label>
+          <label class="sm:col-span-2"><span class="input-label">{{ t('balanceCards.admin.purchaseURL') }}</span><input v-model.trim="planForm.purchase_url" class="input" type="url" maxlength="2048" placeholder="https://" /></label>
+          <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400 sm:col-span-2">{{ t('balanceCards.admin.productHint') }}</p>
+        </div>
         <label><span class="input-label">{{ t('balanceCards.admin.cardType') }}</span><select v-model="planForm.card_type" class="input"><option v-for="type in cardTypes" :key="type" :value="type">{{ t(`balanceCards.types.${type}`) }}</option></select></label>
         <label><span class="input-label">{{ t('balanceCards.admin.validity') }}</span><input v-model.number="planForm.validity_days" class="input" type="number" min="1" max="36500" required /></label>
 	        <label><span class="input-label">{{ t('balanceCards.admin.dailyQuota') }}</span><input v-model.number="planForm.daily_quota_usd" class="input" type="number" min="0" step="0.01" :placeholder="t('balanceCards.admin.unlimitedQuotaHint')" /></label>
@@ -116,6 +127,8 @@ import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/format'
 import { balanceCardResetCostDays, balanceCardResetWindow } from '@/utils/balanceCardReset'
 import type { BalanceCardLedger, BalanceCardPlan, BalanceCardPlanInput, BalanceCardType, UserBalanceCard } from '@/types'
+import { RouterLink } from 'vue-router'
+import { formatPaymentAmount } from '@/components/payment/currency'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -142,7 +155,7 @@ const showLedgerDialog = ref(false)
 const ledgerItems = ref<BalanceCardLedger[]>([])
 
 function emptyPlan(): BalanceCardPlanInput {
-  return { name: '', description: '', card_type: 'month', validity_days: 30, daily_quota_usd: 10, weekly_quota_usd: 50, monthly_quota_usd: 200, fallback_default: true, auto_reset_default: false, max_reset_count: 20, status: 'active', sort_order: 0 }
+  return { name: '', description: '', price_cny: 0, for_sale: false, purchase_url: '', card_type: 'month', validity_days: 30, daily_quota_usd: 10, weekly_quota_usd: 50, monthly_quota_usd: 200, fallback_default: true, auto_reset_default: false, max_reset_count: 20, status: 'active', sort_order: 0 }
 }
 
 function quotaPercent(usage: number, limit: number): number {
@@ -174,6 +187,7 @@ function normalizedPlanInput(): BalanceCardPlanInput {
   }
   return {
     ...planForm,
+    price_cny: normalizeQuota(planForm.price_cny),
     daily_quota_usd: normalizeQuota(planForm.daily_quota_usd),
     weekly_quota_usd: normalizeQuota(planForm.weekly_quota_usd),
     monthly_quota_usd: normalizeQuota(planForm.monthly_quota_usd)
@@ -209,6 +223,7 @@ function openPlan(plan?: BalanceCardPlan) {
   editingPlanId.value = plan?.id || null
   Object.assign(planForm, plan ? {
     name: plan.name, description: plan.description, card_type: plan.card_type,
+    price_cny: plan.price_cny ?? 0, for_sale: plan.for_sale ?? false, purchase_url: plan.purchase_url ?? '',
     validity_days: plan.validity_days, daily_quota_usd: plan.daily_quota_usd,
     weekly_quota_usd: plan.weekly_quota_usd, monthly_quota_usd: plan.monthly_quota_usd,
     fallback_default: plan.fallback_default, auto_reset_default: plan.auto_reset_default,

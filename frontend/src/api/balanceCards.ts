@@ -1,5 +1,10 @@
 import { apiClient } from './client'
-import type { BalanceCardLedger, PaginatedResponse, UserBalanceCard } from '@/types'
+import type { BalanceCardLedger, BalanceCardProduct, PaginatedResponse, UserBalanceCard } from '@/types'
+
+export async function getBalanceCardProducts(): Promise<BalanceCardProduct[]> {
+  const { data } = await apiClient.get<BalanceCardProduct[]>('/balance-cards/plans')
+  return data
+}
 
 export async function getMyBalanceCards(): Promise<UserBalanceCard[]> {
   const { data } = await apiClient.get<UserBalanceCard[]>('/balance-cards')
@@ -40,6 +45,7 @@ export async function getBalanceCardLedger(
 }
 
 export default {
+  getBalanceCardProducts,
   getMyBalanceCards,
   updateBalanceCardPreferences,
   resetBalanceCardDaily,

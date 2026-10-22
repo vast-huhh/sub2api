@@ -91,7 +91,7 @@ func TestBalanceCardRedeemCardRollsBackCodeWhenIssuanceFails(t *testing.T) {
 		WithArgs(int64(9)).
 		WillReturnRows(balanceCardPlanRows().AddRow(
 			int64(9), "Monthly 1000", "", service.BalanceCardTypeMonth, 30,
-			60.0, 0.0, 1000.0, true, true, 20, service.StatusActive, 0, now, now,
+			60.0, 0.0, 1000.0, true, true, 20, service.StatusActive, 0, now, now, 0.0, false, "",
 		))
 	mock.ExpectExec(`(?s)UPDATE redeem_codes.*WHERE id=\$1 AND status='unused'`).
 		WithArgs(int64(41), int64(12), now).
@@ -198,6 +198,6 @@ func balanceCardPlanRows() *sqlmock.Rows {
 		"id", "name", "description", "card_type", "validity_days",
 		"daily_quota_usd", "weekly_quota_usd", "monthly_quota_usd",
 		"fallback_default", "auto_reset_default", "max_reset_count", "status",
-		"sort_order", "created_at", "updated_at",
+		"sort_order", "created_at", "updated_at", "price_cny", "for_sale", "purchase_url",
 	})
 }

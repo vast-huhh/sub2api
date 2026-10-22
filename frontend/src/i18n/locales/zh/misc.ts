@@ -315,6 +315,14 @@ export default {
     amountLabel: '充值金额',
     paymentAmount: '支付金额',
     creditedBalance: '到账余额',
+    manualRecharge: {
+      label: '快捷充值',
+      name: '余额充值永不过期',
+      validity: '永久有效',
+      rate: '0.2 倍率 · 1 元到账 5 刀',
+      description: '充值余额永久有效，按需使用。',
+      contactAdmin: '充值请找管理员',
+    },
     rechargeBonus: {
       creditedShort: '到账 {amount}',
       payShort: '实付 {amount}',

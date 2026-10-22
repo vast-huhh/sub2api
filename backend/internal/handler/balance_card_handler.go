@@ -51,6 +51,15 @@ func (h *BalanceCardHandler) List(c *gin.Context) {
 	response.Success(c, cards)
 }
 
+func (h *BalanceCardHandler) ListProducts(c *gin.Context) {
+	products, err := h.service.ListProducts(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, products)
+}
+
 func (h *BalanceCardHandler) UpdatePreferences(c *gin.Context) {
 	userID, ok := balanceCardSubject(c)
 	if !ok {

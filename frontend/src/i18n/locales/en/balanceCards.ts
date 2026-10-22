@@ -5,7 +5,20 @@ export default {
     types: { day: 'Day card', week: 'Week card', month: 'Month card', custom: 'Custom card' },
     status: { pending: 'Pending', active: 'Active', expired: 'Expired', suspended: 'Suspended', revoked: 'Revoked' },
     events: { assign: 'Assigned', activate: 'Activated', usage: 'Usage', natural_reset: 'Daily reset', manual_reset: 'Manual reset', auto_reset: 'Auto reset', extend: 'Validity adjusted', revoke: 'Revoked', restore: 'Restored', preference_update: 'Preferences updated' },
+    shop: {
+      title: 'Buy Plans',
+      description: 'Choose a balance-card plan and review its allowances and validity before purchasing.',
+      empty: 'No balance-card plans are on sale',
+      loadFailed: 'Failed to load plans. Please try again.',
+      contactAdmin: 'Contact the administrator to purchase',
+      buy: 'Buy Now',
+      redeemHint: 'If you receive a code after purchasing, redeem it to claim your balance card.',
+      redeem: 'Redeem a Code',
+    },
     admin: {
+      priceCNY: 'Product Price (CNY)', forSale: 'List in Buy Plans', purchaseURL: 'Store Purchase Link',
+      productHint: 'Enable the plan and set a price greater than 0 to list it. Buy Now opens the store link. Leave the link blank to show the administrator contact notice.',
+      previewShop: 'View Shop', onSale: 'On Sale', offSale: 'Not Listed', noPrice: 'Not Priced',
 	      title: 'Balance Card Management', description: 'Manage balance-card plans and user assignments', issuedCards: 'User cards', plans: 'Plans', assign: 'Assign card', createPlan: 'Create plan', editPlan: 'Edit plan', userId: 'User ID', user: 'User', plan: 'Plan', allPlans: 'All plans', allStatus: 'All statuses', total: '{count} total', extend: 'Adjust', revoke: 'Revoke', validity: 'Validity days', dailyQuota: 'Daily allowance', planDescription: 'Description', cardType: 'Card type', maxResets: 'Maximum resets', sortOrder: 'Sort order', unlimitedQuotaHint: 'Leave blank or enter 0 for unlimited', userIds: 'Select users', userIdsHint: 'Search by email or username', userSearchPlaceholder: 'Search username or email', userSearchEmpty: 'No selectable users found', selectedUsers: '{count} users selected', removeUser: 'Remove user', unnamedUser: 'No username', userIdFallback: 'User #{id}', notes: 'Notes', queueHint: 'If a user already has an active card, the new card is queued and starts after it expires.', invalidUsers: 'Select users and a plan', assignSuccess: 'Assigned cards to {count} users', assignFailed: 'Assignment failed', extendPrompt: 'Enter the number of days to adjust (negative shortens)', invalidDays: 'Enter a non-zero whole number of days', revokeConfirm: 'Revoke this balance card? Queued cards will be moved forward.', deleteConfirm: 'Deleting hides this card from both admin and user lists while retaining billing and audit history. Delete it?', deleteSuccess: 'Balance card deleted', deleteFailed: 'Failed to delete balance card'
     }
   }

@@ -7968,6 +7968,18 @@
                 <Toggle v-model="form.payment_enabled" />
               </div>
               <template v-if="form.payment_enabled">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label for="manual-recharge-toggle" class="font-medium text-gray-900 dark:text-white">{{ t("admin.settings.payment.manualRechargeEnabled") }}</label>
+                    <p id="manual-recharge-toggle-hint" class="text-sm text-gray-500 dark:text-gray-400">{{ t("admin.settings.payment.manualRechargeEnabledHint") }}</p>
+                  </div>
+                  <Toggle
+                    id="manual-recharge-toggle"
+                    v-model="form.payment_manual_recharge_enabled"
+                    :aria-label="t('admin.settings.payment.manualRechargeEnabled')"
+                    aria-describedby="manual-recharge-toggle-hint"
+                  />
+                </div>
                 <!-- Row 1: Product name -->
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div>
@@ -9821,6 +9833,7 @@ const form = reactive<SettingsForm>({
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
+  payment_manual_recharge_enabled: true,
   risk_control_enabled: false,
   cyber_policy_user_allowlist: "",
   cyber_session_block_enabled: false,
@@ -11704,6 +11717,7 @@ async function saveSettings() {
       ),
       // Payment configuration
       payment_enabled: form.payment_enabled,
+      payment_manual_recharge_enabled: form.payment_manual_recharge_enabled,
       risk_control_enabled: form.risk_control_enabled,
       cyber_policy_user_allowlist: form.cyber_policy_user_allowlist,
       cyber_session_block_enabled: form.cyber_session_block_enabled,

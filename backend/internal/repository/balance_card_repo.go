@@ -31,7 +31,8 @@ const balanceCardPlanColumns = `
 	id, name, description, card_type, validity_days,
 	daily_quota_usd::double precision, weekly_quota_usd::double precision,
 	monthly_quota_usd::double precision, fallback_default, auto_reset_default,
-	max_reset_count, status, sort_order, created_at, updated_at`
+	max_reset_count, status, sort_order, created_at, updated_at,
+	price_cny::double precision, for_sale, purchase_url`
 
 func scanBalanceCardPlan(row balanceCardRowScanner) (*service.BalanceCardPlan, error) {
 	var p service.BalanceCardPlan
@@ -40,6 +41,7 @@ func scanBalanceCardPlan(row balanceCardRowScanner) (*service.BalanceCardPlan, e
 		&p.DailyQuotaUSD, &p.WeeklyQuotaUSD, &p.MonthlyQuotaUSD,
 		&p.FallbackDefault, &p.AutoResetDefault,
 		&p.MaxResetCount, &p.Status, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt,
+		&p.PriceCNY, &p.ForSale, &p.PurchaseURL,
 	); err != nil {
 		return nil, err
 	}
@@ -80,13 +82,14 @@ func (r *balanceCardRepository) GetPlan(ctx context.Context, id int64) (*service
 func (r *balanceCardRepository) CreatePlan(ctx context.Context, input *service.CreateBalanceCardPlanInput) (*service.BalanceCardPlan, error) {
 	query := `INSERT INTO balance_card_plans
 		(name, description, card_type, validity_days, daily_quota_usd, weekly_quota_usd,
-		 monthly_quota_usd, fallback_default, auto_reset_default, max_reset_count, status, sort_order)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		 monthly_quota_usd, fallback_default, auto_reset_default, max_reset_count, status, sort_order,
+		 price_cny, for_sale, purchase_url)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		RETURNING ` + balanceCardPlanColumns
 	return scanBalanceCardPlan(r.db.QueryRowContext(ctx, query,
 		input.Name, input.Description, input.CardType, input.ValidityDays, input.DailyQuotaUSD,
 		input.WeeklyQuotaUSD, input.MonthlyQuotaUSD, input.FallbackDefault, input.AutoResetDefault,
-		input.MaxResetCount, input.Status, input.SortOrder))
+		input.MaxResetCount, input.Status, input.SortOrder, input.PriceCNY, input.ForSale, input.PurchaseURL))
 }
 
 func (r *balanceCardRepository) UpdatePlan(ctx context.Context, id int64, input *service.UpdateBalanceCardPlanInput) (*service.BalanceCardPlan, error) {
@@ -94,12 +97,13 @@ func (r *balanceCardRepository) UpdatePlan(ctx context.Context, id int64, input 
 		name=$1, description=$2, card_type=$3, validity_days=$4, daily_quota_usd=$5,
 		weekly_quota_usd=$6, monthly_quota_usd=$7, fallback_default=$8,
 		auto_reset_default=$9, max_reset_count=$10, status=$11,
-		sort_order=$12, updated_at=NOW()
-		WHERE id=$13 RETURNING ` + balanceCardPlanColumns
+		sort_order=$12, price_cny=$13, for_sale=$14, purchase_url=$15, updated_at=NOW()
+		WHERE id=$16 RETURNING ` + balanceCardPlanColumns
 	plan, err := scanBalanceCardPlan(r.db.QueryRowContext(ctx, query,
 		input.Name, input.Description, input.CardType, input.ValidityDays, input.DailyQuotaUSD,
 		input.WeeklyQuotaUSD, input.MonthlyQuotaUSD, input.FallbackDefault,
-		input.AutoResetDefault, input.MaxResetCount, input.Status, input.SortOrder, id))
+		input.AutoResetDefault, input.MaxResetCount, input.Status, input.SortOrder,
+		input.PriceCNY, input.ForSale, input.PurchaseURL, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, service.ErrBalanceCardPlanNotFound
 	}

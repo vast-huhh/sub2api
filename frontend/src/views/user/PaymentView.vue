@@ -45,10 +45,11 @@
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
             </div>
-            <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
+            <BalanceRechargeShop v-if="checkout.manual_recharge_enabled !== false" :show-empty="enabledMethods.length === 0" />
+            <div v-else-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
-            <template v-else>
+            <template v-if="enabledMethods.length > 0">
             <div class="card p-6">
               <!-- 充值赠送活动文案（后台 Markdown 配置，空则不渲染） -->
               <div
@@ -116,6 +117,7 @@
             </button>
             </template>
           </template>
+          <BalanceCardShop v-else-if="activeTab === 'balance-card'" />
           <!-- Subscribe Tab -->
           <template v-else-if="activeTab === 'subscription'">
             <!-- Subscription confirm (inline, replaces plan list) -->
@@ -298,6 +300,8 @@ import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderTy
 import { formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers, quoteRechargeBonus } from '@/utils/rechargeBonus'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
+import BalanceCardShop from '@/components/payment/BalanceCardShop.vue'
+import BalanceRechargeShop from '@/components/payment/BalanceRechargeShop.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
 import {
@@ -350,7 +354,7 @@ const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
 const errorHintMessage = ref('')
-const activeTab = ref<'recharge' | 'subscription'>('recharge')
+const activeTab = ref<'recharge' | 'balance-card' | 'subscription'>('recharge')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
@@ -545,19 +549,18 @@ const renderedBonusNotice = computed(() => {
   return DOMPurify.sanitize(marked.parse(raw, { async: false, gfm: true, breaks: true }))
 })
 
-// 订阅功能开关（public settings 的 subscription_enabled，opt-out）。关闭后购买页只保留充值：
-// 不再渲染「订阅」tab，只剩单个 tab 时顶部切换器也随之隐藏。
+// 订阅开关只控制订阅入口，余额卡套餐购买独立可用。
 const subscriptionEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
 
 const tabs = computed(() => {
-  const result: { key: 'recharge' | 'subscription'; label: string }[] = []
+  const result: { key: 'recharge' | 'balance-card' | 'subscription'; label: string }[] = []
   if (!checkout.value.balance_disabled) result.push({ key: 'recharge', label: t('payment.tabTopUp') })
+  result.push({ key: 'balance-card', label: t('balanceCards.shop.title') })
   if (subscriptionEnabled.value) result.push({ key: 'subscription', label: t('payment.tabSubscribe') })
   return result
 })
 
-// tab 列表随 checkout（balance_disabled）与订阅开关变化。当前 tab 不在列表里时收敛到第一个可用 tab，
-// 两个方向都覆盖：关闭订阅 → 回到充值；仅订阅站点重新打开订阅 → 进入订阅。列表为空时模板展示不可用提示。
+// 当前入口关闭时切换到第一个可用入口，并清理订阅确认状态。
 watch(tabs, (available) => {
   if (available.some((tab) => tab.key === activeTab.value)) return
   const leavingSubscription = activeTab.value === 'subscription'
@@ -1201,8 +1204,11 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
-    // balance_disabled → the tabs watcher above moves activeTab to the subscription tab (when enabled).
+    // The tabs watcher selects an available tab when balance recharge is disabled.
     // Handle renewal navigation: ?tab=subscription&group=123 (ignored when subscriptions are disabled)
+    if (route.query.tab === 'balance-card') {
+      activeTab.value = 'balance-card'
+    }
     if (route.query.tab === 'subscription' && subscriptionEnabled.value) {
       activeTab.value = 'subscription'
       if (route.query.group) {

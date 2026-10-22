@@ -503,6 +503,9 @@ export interface BalanceCardPlan {
   id: number
   name: string
   description: string
+  price_cny?: number
+  for_sale?: boolean
+  purchase_url?: string
   card_type: BalanceCardType
   validity_days: number
   daily_quota_usd: number
@@ -571,6 +574,9 @@ export interface BalanceCardLedger {
 export interface BalanceCardPlanInput {
   name: string
   description: string
+  price_cny?: number
+  for_sale?: boolean
+  purchase_url?: string
   card_type: BalanceCardType
   validity_days: number
   daily_quota_usd: number
@@ -581,6 +587,20 @@ export interface BalanceCardPlanInput {
   max_reset_count: number
   status: 'active' | 'inactive'
   sort_order: number
+}
+
+export interface BalanceCardProduct {
+  id: number
+  name: string
+  description: string
+  price_cny: number
+  purchase_url: string
+  card_type: BalanceCardType
+  validity_days: number
+  daily_quota_usd: number
+  weekly_quota_usd: number
+  monthly_quota_usd: number
+  max_reset_count: number
 }
 
 // ==================== UI State Types ====================

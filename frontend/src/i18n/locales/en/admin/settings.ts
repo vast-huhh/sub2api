@@ -732,6 +732,8 @@ export default {
         configGuide: 'Configuration Guide',
         enabled: 'Enable Payment',
         enabledHint: 'Enable or disable the payment system',
+        manualRechargeEnabled: 'Show Balance Recharge Products',
+        manualRechargeEnabledHint: 'Control product visibility on the recharge page. Manage product names, prices and store links in Balance Recharge Products. Save to apply.',
         enabledPaymentTypes: 'Enabled Providers',
         enabledPaymentTypesHint: 'Disabling a provider will also disable its instances.',
         findProvider: 'Looking for a suitable EasyPay provider?',

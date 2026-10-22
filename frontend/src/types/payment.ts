@@ -39,6 +39,8 @@ export interface PaymentConfig {
   max_pending_orders: number
   order_timeout_minutes: number
   balance_disabled: boolean
+  /** Show the manual recharge product when online payment is unavailable; defaults to true. */
+  manual_recharge_enabled?: boolean
   balance_recharge_multiplier: number
   subscription_usd_to_cny_rate: number
   enabled_payment_types: PaymentType[]
@@ -73,6 +75,8 @@ export interface CheckoutInfoResponse {
   global_max: number
   plans: SubscriptionPlan[]
   balance_disabled: boolean
+  /** Show the manual recharge product when online payment is unavailable; defaults to true. */
+  manual_recharge_enabled?: boolean
   balance_recharge_multiplier: number
   /** Subscription CNY conversion rate (1 USD = X CNY); 0 = disabled, plan price is charged as-is */
   subscription_usd_to_cny_rate: number

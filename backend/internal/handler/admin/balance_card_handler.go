@@ -20,18 +20,21 @@ func NewBalanceCardHandler(svc *service.BalanceCardService) *BalanceCardHandler 
 }
 
 type balanceCardPlanRequest struct {
-	Name             string  `json:"name" binding:"required,max=100"`
-	Description      string  `json:"description"`
-	CardType         string  `json:"card_type" binding:"required"`
-	ValidityDays     int     `json:"validity_days" binding:"required,min=1,max=36500"`
-	DailyQuotaUSD    float64 `json:"daily_quota_usd" binding:"gte=0"`
-	WeeklyQuotaUSD   float64 `json:"weekly_quota_usd" binding:"gte=0"`
-	MonthlyQuotaUSD  float64 `json:"monthly_quota_usd" binding:"gte=0"`
-	FallbackDefault  *bool   `json:"fallback_default"`
-	AutoResetDefault *bool   `json:"auto_reset_default"`
-	MaxResetCount    *int    `json:"max_reset_count"`
-	Status           string  `json:"status"`
-	SortOrder        int     `json:"sort_order"`
+	Name             string   `json:"name" binding:"required,max=100"`
+	Description      string   `json:"description"`
+	PriceCNY         *float64 `json:"price_cny"`
+	ForSale          *bool    `json:"for_sale"`
+	PurchaseURL      *string  `json:"purchase_url"`
+	CardType         string   `json:"card_type" binding:"required"`
+	ValidityDays     int      `json:"validity_days" binding:"required,min=1,max=36500"`
+	DailyQuotaUSD    float64  `json:"daily_quota_usd" binding:"gte=0"`
+	WeeklyQuotaUSD   float64  `json:"weekly_quota_usd" binding:"gte=0"`
+	MonthlyQuotaUSD  float64  `json:"monthly_quota_usd" binding:"gte=0"`
+	FallbackDefault  *bool    `json:"fallback_default"`
+	AutoResetDefault *bool    `json:"auto_reset_default"`
+	MaxResetCount    *int     `json:"max_reset_count"`
+	Status           string   `json:"status"`
+	SortOrder        int      `json:"sort_order"`
 }
 
 func (r balanceCardPlanRequest) serviceInput() *service.CreateBalanceCardPlanInput {
@@ -49,6 +52,7 @@ func (r balanceCardPlanRequest) serviceInput() *service.CreateBalanceCardPlanInp
 	}
 	return &service.CreateBalanceCardPlanInput{
 		Name: r.Name, Description: r.Description, CardType: r.CardType,
+		PriceCNY: r.PriceCNY, ForSale: r.ForSale, PurchaseURL: r.PurchaseURL,
 		ValidityDays: r.ValidityDays, DailyQuotaUSD: r.DailyQuotaUSD,
 		WeeklyQuotaUSD: r.WeeklyQuotaUSD, MonthlyQuotaUSD: r.MonthlyQuotaUSD,
 		FallbackDefault: fallback, AutoResetDefault: autoReset,

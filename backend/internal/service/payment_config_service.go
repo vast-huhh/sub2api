@@ -15,16 +15,17 @@ import (
 )
 
 const (
-	SettingPaymentEnabled      = "payment_enabled"
-	SettingMinRechargeAmount   = "MIN_RECHARGE_AMOUNT"
-	SettingMaxRechargeAmount   = "MAX_RECHARGE_AMOUNT"
-	SettingDailyRechargeLimit  = "DAILY_RECHARGE_LIMIT"
-	SettingOrderTimeoutMinutes = "ORDER_TIMEOUT_MINUTES"
-	SettingMaxPendingOrders    = "MAX_PENDING_ORDERS"
-	SettingEnabledPaymentTypes = "ENABLED_PAYMENT_TYPES"
-	SettingLoadBalanceStrategy = "LOAD_BALANCE_STRATEGY"
-	SettingBalancePayDisabled  = "BALANCE_PAYMENT_DISABLED"
-	SettingBalanceRechargeMult = "BALANCE_RECHARGE_MULTIPLIER"
+	SettingPaymentEnabled        = "payment_enabled"
+	SettingMinRechargeAmount     = "MIN_RECHARGE_AMOUNT"
+	SettingMaxRechargeAmount     = "MAX_RECHARGE_AMOUNT"
+	SettingDailyRechargeLimit    = "DAILY_RECHARGE_LIMIT"
+	SettingOrderTimeoutMinutes   = "ORDER_TIMEOUT_MINUTES"
+	SettingMaxPendingOrders      = "MAX_PENDING_ORDERS"
+	SettingEnabledPaymentTypes   = "ENABLED_PAYMENT_TYPES"
+	SettingLoadBalanceStrategy   = "LOAD_BALANCE_STRATEGY"
+	SettingBalancePayDisabled    = "BALANCE_PAYMENT_DISABLED"
+	SettingManualRechargeEnabled = "PAYMENT_MANUAL_RECHARGE_ENABLED"
+	SettingBalanceRechargeMult   = "BALANCE_RECHARGE_MULTIPLIER"
 	// SettingSubscriptionUSDToCNYRate 是订阅 CNY 换算汇率（1 USD = X CNY）。
 	// 0/未配置 = 关闭换算（订阅按 price 数值直付），显式配置后 CNY 通道订阅按 price × rate 收款。
 	SettingSubscriptionUSDToCNYRate      = "SUBSCRIPTION_USD_TO_CNY_RATE"
@@ -58,6 +59,7 @@ type PaymentConfig struct {
 	MaxPendingOrders          int      `json:"max_pending_orders"`
 	EnabledTypes              []string `json:"enabled_payment_types"`
 	BalanceDisabled           bool     `json:"balance_disabled"`
+	ManualRechargeEnabled     bool     `json:"manual_recharge_enabled"`
 	BalanceRechargeMultiplier float64  `json:"balance_recharge_multiplier"`
 	// SubscriptionUSDToCNYRate 为 0 时订阅换算关闭（兼容存量行为）。
 	SubscriptionUSDToCNYRate float64 `json:"subscription_usd_to_cny_rate"`
@@ -98,6 +100,7 @@ type UpdatePaymentConfigRequest struct {
 	MaxPendingOrders          *int     `json:"max_pending_orders"`
 	EnabledTypes              []string `json:"enabled_payment_types"`
 	BalanceDisabled           *bool    `json:"balance_disabled"`
+	ManualRechargeEnabled     *bool    `json:"manual_recharge_enabled"`
 	BalanceRechargeMultiplier *float64 `json:"balance_recharge_multiplier"`
 	SubscriptionUSDToCNYRate  *float64 `json:"subscription_usd_to_cny_rate"`
 	RechargeFeeRate           *float64 `json:"recharge_fee_rate"`
@@ -227,7 +230,7 @@ func (s *PaymentConfigService) IsPaymentEnabled(ctx context.Context) bool {
 // GetPaymentConfig returns the full payment configuration.
 func (s *PaymentConfigService) GetPaymentConfig(ctx context.Context) (*PaymentConfig, error) {
 	keys := []string{
-		SettingPaymentEnabled, SettingMinRechargeAmount, SettingMaxRechargeAmount,
+		SettingPaymentEnabled, SettingManualRechargeEnabled, SettingMinRechargeAmount, SettingMaxRechargeAmount,
 		SettingDailyRechargeLimit, SettingOrderTimeoutMinutes, SettingMaxPendingOrders,
 		SettingEnabledPaymentTypes, SettingBalancePayDisabled, SettingBalanceRechargeMult, SettingSubscriptionUSDToCNYRate, SettingRechargeFeeRate, SettingLoadBalanceStrategy,
 		SettingRechargeBonusTiers, SettingRechargeBonusMode, SettingRechargeBonusNotice,
@@ -258,6 +261,7 @@ func (s *PaymentConfigService) parsePaymentConfig(vals map[string]string) *Payme
 		OrderTimeoutMin:           pcParseInt(vals[SettingOrderTimeoutMinutes], defaultOrderTimeoutMin),
 		MaxPendingOrders:          pcParseInt(vals[SettingMaxPendingOrders], defaultMaxPendingOrders),
 		BalanceDisabled:           vals[SettingBalancePayDisabled] == "true",
+		ManualRechargeEnabled:     vals[SettingManualRechargeEnabled] != "false",
 		BalanceRechargeMultiplier: normalizeBalanceRechargeMultiplier(pcParseFloat(vals[SettingBalanceRechargeMult], defaultBalanceRechargeMultiplier)),
 		SubscriptionUSDToCNYRate:  normalizeSubscriptionUSDToCNYRate(pcParseFloat(vals[SettingSubscriptionUSDToCNYRate], 0)),
 		RechargeFeeRate:           pcParseFloat(vals[SettingRechargeFeeRate], 0),
@@ -369,6 +373,9 @@ func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req Upda
 	m := make(map[string]string)
 	if req.Enabled != nil {
 		m[SettingPaymentEnabled] = formatBoolOrEmpty(req.Enabled)
+	}
+	if req.ManualRechargeEnabled != nil {
+		m[SettingManualRechargeEnabled] = formatBoolOrEmpty(req.ManualRechargeEnabled)
 	}
 	if req.MinAmount != nil {
 		m[SettingMinRechargeAmount] = formatPositiveFloat(req.MinAmount)

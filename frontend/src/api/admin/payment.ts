@@ -23,6 +23,7 @@ export interface AdminPaymentConfig {
   max_pending_orders: number
   enabled_payment_types: string[]
   balance_disabled: boolean
+  manual_recharge_enabled: boolean
   balance_recharge_multiplier: number
   subscription_usd_to_cny_rate: number
   recharge_fee_rate: number
@@ -43,6 +44,7 @@ export interface UpdatePaymentConfigRequest {
   max_pending_orders?: number
   enabled_payment_types?: string[]
   balance_disabled?: boolean
+  manual_recharge_enabled?: boolean
   balance_recharge_multiplier?: number
   subscription_usd_to_cny_rate?: number
   recharge_fee_rate?: number

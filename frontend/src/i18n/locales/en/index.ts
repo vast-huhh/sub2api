@@ -4,6 +4,7 @@ import dashboard from './dashboard'
 import channelMonitorV2 from './channelMonitorV2'
 import batchImage from './batchImage'
 import balanceCards from './balanceCards'
+import rechargeProducts from './rechargeProducts'
 import admin from './admin'
 import misc from './misc'
 
@@ -14,6 +15,7 @@ export default {
   ...channelMonitorV2,
   ...batchImage,
   ...balanceCards,
+  ...rechargeProducts,
   admin,
   ...misc,
 }

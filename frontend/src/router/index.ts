@@ -526,6 +526,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/recharge-products',
+    name: 'AdminBalanceRechargeProducts',
+    component: () => import('@/views/admin/BalanceRechargeProductsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Balance Recharge Products',
+      titleKey: 'rechargeProducts.title',
+      descriptionKey: 'rechargeProducts.description'
+    }
+  },
+  {
     path: '/admin/balance-cards',
     name: 'AdminBalanceCards',
     component: () => import('@/views/admin/BalanceCardsView.vue'),
@@ -975,6 +987,7 @@ router.beforeEach(async (to, _from, next) => {
     const restrictedPaths = [
       '/admin/subscriptions',
       '/admin/balance-cards',
+      '/admin/recharge-products',
       '/admin/redeem',
       '/subscriptions',
       '/balance-cards',

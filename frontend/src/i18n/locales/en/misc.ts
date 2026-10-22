@@ -291,6 +291,14 @@ export default {
     amountLabel: 'Amount',
     paymentAmount: 'Payment Amount',
     creditedBalance: 'Credited Balance',
+    manualRecharge: {
+      label: 'Quick Recharge',
+      name: 'Balance Recharge — Never Expires',
+      validity: 'No Expiry',
+      rate: '0.2× rate · ¥1 adds $5 in credit',
+      description: 'Your recharge balance never expires. Use it whenever you need.',
+      contactAdmin: 'Contact the administrator to recharge',
+    },
     rechargeBonus: {
       creditedShort: 'Get {amount}',
       payShort: 'Pay {amount}',

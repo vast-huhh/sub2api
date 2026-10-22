@@ -727,6 +727,8 @@ export default {
         configGuide: '支付配置指南',
         enabled: '启用支付',
         enabledHint: '启用或禁用支付系统',
+        manualRechargeEnabled: '显示余额充值商品',
+        manualRechargeEnabledHint: '控制充值页的商品展示。商品名称、售价和卡网链接可在“余额充值商品管理”中设置，保存后生效。',
         enabledPaymentTypes: '启用的服务商',
         enabledPaymentTypesHint: '禁用服务商将同时禁用对应的实例。',
         findProvider: '正在寻找合适的易支付服务商？',

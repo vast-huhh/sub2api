@@ -139,6 +139,7 @@ func RegisterUserRoutes(
 		balanceCards := authenticated.Group("/balance-cards")
 		{
 			balanceCards.GET("", h.BalanceCard.List)
+			balanceCards.GET("/plans", h.BalanceCard.ListProducts)
 			balanceCards.PATCH("/:id/preferences", h.BalanceCard.UpdatePreferences)
 			balanceCards.POST("/:id/reset-daily", h.BalanceCard.ResetDaily)
 			balanceCards.GET("/:id/ledger", h.BalanceCard.Ledger)
