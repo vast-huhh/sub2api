@@ -429,6 +429,7 @@ type BalanceCardRepository interface {
 	GetPlan(ctx context.Context, id int64) (*BalanceCardPlan, error)
 	CreatePlan(ctx context.Context, input *CreateBalanceCardPlanInput) (*BalanceCardPlan, error)
 	UpdatePlan(ctx context.Context, id int64, input *UpdateBalanceCardPlanInput) (*BalanceCardPlan, error)
+	DeletePlan(ctx context.Context, id, actorID int64, now time.Time) error
 
 	AssignCard(ctx context.Context, input *AssignBalanceCardInput, now time.Time) (*UserBalanceCard, error)
 	AssignCards(ctx context.Context, inputs []*AssignBalanceCardInput, now time.Time) ([]UserBalanceCard, error)
@@ -518,6 +519,13 @@ func normalizeBalanceCardPlanInput(input *CreateBalanceCardPlanInput) error {
 
 func (s *BalanceCardService) ListPlans(ctx context.Context, includeInactive bool) ([]BalanceCardPlan, error) {
 	return s.repo.ListPlans(ctx, includeInactive)
+}
+
+func (s *BalanceCardService) DeletePlan(ctx context.Context, id, actorID int64) error {
+	if id <= 0 {
+		return ErrBalanceCardInvalidInput
+	}
+	return s.repo.DeletePlan(ctx, id, actorID, timezone.Now())
 }
 
 func (s *BalanceCardService) GetPlan(ctx context.Context, id int64) (*BalanceCardPlan, error) {

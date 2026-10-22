@@ -41,43 +41,62 @@ func TestBalanceCardListCards_NoFiltersDoesNotBindUnusedCountArgument(t *testing
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestBalanceCardDeleteCard_SoftDeletesRevokedCard(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
-
+func TestBalanceCardDeleteCard_SoftDeletesFinishedCards(t *testing.T) {
 	now := time.Now()
-	mock.ExpectBegin()
-	mock.ExpectQuery(`(?s)SELECT user_id, status FROM user_balance_cards.*deleted_at IS NULL FOR UPDATE`).
-		WithArgs(int64(7)).
-		WillReturnRows(sqlmock.NewRows([]string{"user_id", "status"}).AddRow(int64(20), service.BalanceCardStatusRevoked))
-	mock.ExpectExec(`(?s)UPDATE user_balance_cards.*SET deleted_at=\$2, deleted_by=NULLIF\(\$3,0\), updated_at=\$2`).
-		WithArgs(int64(7), now, int64(1)).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
+	for _, tc := range []struct {
+		name      string
+		status    string
+		expiresAt time.Time
+	}{
+		{"revoked", service.BalanceCardStatusRevoked, now.Add(time.Hour)},
+		{"expired", service.BalanceCardStatusExpired, now.Add(-time.Hour)},
+		{"elapsed active", service.BalanceCardStatusActive, now.Add(-time.Hour)},
+		{"elapsed pending", service.BalanceCardStatusPending, now.Add(-time.Hour)},
+		{"exact expiry", service.BalanceCardStatusActive, now},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer func() { _ = db.Close() }()
 
-	repo := &balanceCardRepository{db: db}
-	userID, err := repo.DeleteCard(context.Background(), 7, 1, now)
-	require.NoError(t, err)
-	require.Equal(t, int64(20), userID)
-	require.NoError(t, mock.ExpectationsWereMet())
+			mock.ExpectBegin()
+			mock.ExpectQuery(`(?s)SELECT user_id, status, expires_at FROM user_balance_cards.*deleted_at IS NULL FOR UPDATE`).
+				WithArgs(int64(7)).
+				WillReturnRows(sqlmock.NewRows([]string{"user_id", "status", "expires_at"}).AddRow(int64(20), tc.status, tc.expiresAt))
+			mock.ExpectExec(`(?s)UPDATE user_balance_cards.*SET deleted_at=\$2, deleted_by=NULLIF\(\$3,0\), updated_at=\$2`).
+				WithArgs(int64(7), now, int64(1)).
+				WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectCommit()
+
+			repo := &balanceCardRepository{db: db}
+			userID, err := repo.DeleteCard(context.Background(), 7, 1, now)
+			require.NoError(t, err)
+			require.Equal(t, int64(20), userID)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
-func TestBalanceCardDeleteCard_RejectsCardThatIsNotRevoked(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer func() { _ = db.Close() }()
+func TestBalanceCardDeleteCard_RejectsUnfinishedCards(t *testing.T) {
+	for _, status := range []string{service.BalanceCardStatusActive, service.BalanceCardStatusPending, service.BalanceCardStatusSuspended} {
+		t.Run(status, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer func() { _ = db.Close() }()
 
-	mock.ExpectBegin()
-	mock.ExpectQuery(`(?s)SELECT user_id, status FROM user_balance_cards.*deleted_at IS NULL FOR UPDATE`).
-		WithArgs(int64(7)).
-		WillReturnRows(sqlmock.NewRows([]string{"user_id", "status"}).AddRow(int64(20), service.BalanceCardStatusActive))
-	mock.ExpectRollback()
+			now := time.Now()
+			mock.ExpectBegin()
+			mock.ExpectQuery(`(?s)SELECT user_id, status, expires_at FROM user_balance_cards.*deleted_at IS NULL FOR UPDATE`).
+				WithArgs(int64(7)).
+				WillReturnRows(sqlmock.NewRows([]string{"user_id", "status", "expires_at"}).AddRow(int64(20), status, now.Add(time.Hour)))
+			mock.ExpectRollback()
 
-	repo := &balanceCardRepository{db: db}
-	_, err = repo.DeleteCard(context.Background(), 7, 1, time.Now())
-	require.ErrorIs(t, err, service.ErrBalanceCardOperationConflict)
-	require.NoError(t, mock.ExpectationsWereMet())
+			repo := &balanceCardRepository{db: db}
+			_, err = repo.DeleteCard(context.Background(), 7, 1, now)
+			require.ErrorIs(t, err, service.ErrBalanceCardOperationConflict)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestBalanceCardRedeemCardRollsBackCodeWhenIssuanceFails(t *testing.T) {

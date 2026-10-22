@@ -25,6 +25,11 @@ export async function updatePlan(
   return data
 }
 
+export async function deletePlan(id: number): Promise<{ message: string }> {
+  const { data } = await apiClient.delete<{ message: string }>(`/admin/balance-card-plans/${id}`)
+  return data
+}
+
 export async function listCards(
   page = 1,
   pageSize = 20,
@@ -95,6 +100,7 @@ export default {
   listPlans,
   createPlan,
   updatePlan,
+  deletePlan,
   listCards,
   assign,
   bulkAssign,

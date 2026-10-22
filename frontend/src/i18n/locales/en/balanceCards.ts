@@ -16,6 +16,9 @@ export default {
       redeem: 'Redeem a Code',
     },
     admin: {
+      deletePlanConfirm: 'Delete plan "{name}"? It will be removed from plan management and the shop. New assignments and linked code redemptions will stop. Issued cards, their quotas and billing history will be preserved.',
+      deletePlanSuccess: 'Plan deleted',
+      deletePlanFailed: 'Failed to delete plan',
       priceCNY: 'Product Price (CNY)', forSale: 'List in Buy Plans', purchaseURL: 'Store Purchase Link',
       productHint: 'Enable the plan and set a price greater than 0 to list it. Buy Now opens the store link. Leave the link blank to show the administrator contact notice.',
       previewShop: 'View Shop', onSale: 'On Sale', offSale: 'Not Listed', noPrice: 'Not Priced',

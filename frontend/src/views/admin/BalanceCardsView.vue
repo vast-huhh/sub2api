@@ -43,7 +43,15 @@
 	                  <td class="min-w-44 px-4 py-3"><div v-for="quota in cardQuotaRows(card)" :key="quota.key" class="mb-1.5 last:mb-0"><div class="flex justify-between gap-3 text-xs"><span>{{ quota.label }}</span><span v-if="quota.limit > 0">${{ quota.usage.toFixed(2) }} / ${{ quota.limit.toFixed(2) }}</span><span v-else class="text-emerald-600">{{ t('balanceCards.unlimited') }}</span></div><div v-if="quota.limit > 0" class="mt-1 h-1.5 overflow-hidden rounded bg-gray-200 dark:bg-dark-600"><div class="h-full bg-primary-500" :style="{ width: `${quotaPercent(quota.usage, quota.limit)}%` }" /></div></div></td>
                   <td class="whitespace-nowrap px-4 py-3">{{ formatDateTime(card.expires_at) }}</td>
                   <td class="px-4 py-3"><span class="rounded-full bg-gray-100 px-2 py-1 text-xs dark:bg-dark-700">{{ t(`balanceCards.status.${card.status}`) }}</span></td>
-	                  <td class="px-4 py-3"><div class="flex justify-end gap-2"><button class="text-primary-600 hover:underline" @click="viewLedger(card)">{{ t('balanceCards.ledger') }}</button><button v-if="card.status === 'active' || card.status === 'pending'" class="text-primary-600 hover:underline" @click="extendCard(card)">{{ t('balanceCards.admin.extend') }}</button><button v-if="balanceCardResetWindow(card)" class="text-amber-600 hover:underline" @click="resetCard(card)">{{ balanceCardResetWindow(card) === 'weekly' ? t('balanceCards.resetWeek') : t('common.reset') }}</button><button v-if="card.status === 'active' || card.status === 'pending'" class="text-red-600 hover:underline" @click="revokeCard(card)">{{ t('balanceCards.admin.revoke') }}</button><button v-if="card.status === 'revoked'" class="text-red-600 hover:underline" @click="deleteCard(card)">{{ t('common.delete') }}</button></div></td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap justify-end gap-2 whitespace-nowrap">
+                      <button class="text-primary-600 hover:underline" @click="viewLedger(card)">{{ t('balanceCards.ledger') }}</button>
+                      <button v-if="card.status === 'active' || card.status === 'pending'" class="text-primary-600 hover:underline" @click="extendCard(card)">{{ t('balanceCards.admin.extend') }}</button>
+                      <button v-if="balanceCardResetWindow(card)" class="text-amber-600 hover:underline" @click="resetCard(card)">{{ balanceCardResetWindow(card) === 'weekly' ? t('balanceCards.resetWeek') : t('common.reset') }}</button>
+                      <button v-if="card.status === 'active' || card.status === 'pending'" class="text-red-600 hover:underline" @click="revokeCard(card)">{{ t('balanceCards.admin.revoke') }}</button>
+                      <button v-if="card.status === 'revoked' || card.status === 'expired'" class="text-red-600 hover:underline disabled:opacity-50" :disabled="deletingCardId !== null" @click="deleteCard(card)">{{ t('common.delete') }}</button>
+                    </div>
+                  </td>
                 </tr>
                 <tr v-if="!loading && cards.length === 0"><td colspan="7" class="px-4 py-12 text-center text-gray-500">{{ t('common.noData') }}</td></tr>
               </tbody>
@@ -66,8 +74,12 @@
             <span class="rounded-full px-2 py-1 text-xs" :class="plan.for_sale && plan.status === 'active' ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' : 'bg-gray-100 text-gray-500 dark:bg-dark-700'">{{ plan.for_sale && plan.status === 'active' ? t('balanceCards.admin.onSale') : t('balanceCards.admin.offSale') }}</span>
           </div>
 	          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-xs text-gray-400">{{ t('balanceCards.admin.validity') }}</dt><dd class="mt-1 font-medium">{{ plan.validity_days }} {{ t('balanceCards.days') }}</dd></div><div><dt class="text-xs text-gray-400">{{ t('balanceCards.admin.dailyQuota') }}</dt><dd class="mt-1 font-medium">{{ quotaDisplay(plan.daily_quota_usd) }}</dd></div><div v-if="plan.card_type === 'week' || plan.card_type === 'month'"><dt class="text-xs text-gray-400">{{ plan.card_type === 'week' ? t('balanceCards.weekCardTotal') : t('balanceCards.weekQuota') }}</dt><dd class="mt-1 font-medium">{{ quotaDisplay(plan.weekly_quota_usd) }}</dd></div><div v-if="plan.card_type === 'month'"><dt class="text-xs text-gray-400">{{ t('balanceCards.monthCardTotal') }}</dt><dd class="mt-1 font-medium">{{ quotaDisplay(plan.monthly_quota_usd) }}</dd></div><div><dt class="text-xs text-gray-400">{{ t('balanceCards.fallback') }}</dt><dd class="mt-1">{{ plan.fallback_default ? t('common.enabled') : t('common.disabled') }}</dd></div><div><dt class="text-xs text-gray-400">{{ t('balanceCards.autoReset') }}</dt><dd class="mt-1">{{ plan.auto_reset_default ? t('common.enabled') : t('common.disabled') }}</dd></div></dl>
-          <button class="btn btn-secondary mt-5 w-full" @click="openPlan(plan)">{{ t('common.edit') }}</button>
+          <div class="mt-5 flex gap-2">
+            <button class="btn btn-secondary flex-1" :disabled="deletingPlanId === plan.id" @click="openPlan(plan)">{{ t('common.edit') }}</button>
+            <button class="btn btn-secondary text-red-600 hover:text-red-700 dark:text-red-400" :disabled="deletingPlanId !== null" @click="deletePlan(plan)"><Icon name="trash" size="sm" class="mr-2" />{{ t('common.delete') }}</button>
+          </div>
         </article>
+        <p v-if="!plansLoading && plans.length === 0" class="col-span-full py-12 text-center text-sm text-gray-500">{{ t('common.noData') }}</p>
       </section>
     </div>
 
@@ -142,6 +154,8 @@ const cards = ref<UserBalanceCard[]>([])
 const loading = ref(false)
 const plansLoading = ref(false)
 const submitting = ref(false)
+const deletingCardId = ref<number | null>(null)
+const deletingPlanId = ref<number | null>(null)
 const pagination = reactive({ page: 1, page_size: 20, total: 0, pages: 0 })
 const filters = reactive({ user_id: 0, plan_id: 0, status: '' })
 const activePlans = computed(() => plans.value.filter(plan => plan.status === 'active'))
@@ -245,6 +259,24 @@ async function savePlan() {
   finally { submitting.value = false }
 }
 
+async function deletePlan(plan: BalanceCardPlan) {
+  if (deletingPlanId.value !== null || !window.confirm(t('balanceCards.admin.deletePlanConfirm', { name: plan.name }))) return
+  deletingPlanId.value = plan.id
+  try {
+    await adminAPI.balanceCards.deletePlan(plan.id)
+    if (filters.plan_id === plan.id) {
+      filters.plan_id = 0
+      pagination.page = 1
+    }
+    await Promise.all([loadPlans(), loadCards()])
+    appStore.showSuccess(t('balanceCards.admin.deletePlanSuccess'))
+  } catch (error: any) {
+    appStore.showError(error?.message || t('balanceCards.admin.deletePlanFailed'))
+  } finally {
+    deletingPlanId.value = null
+  }
+}
+
 	function openAssign() { Object.assign(assignForm, { userIds: [], planId: activePlans.value[0]?.id || 0, notes: '' }); showAssignDialog.value = true }
 
 async function assignCards() {
@@ -288,7 +320,8 @@ async function revokeCard(card: UserBalanceCard) {
 }
 
 async function deleteCard(card: UserBalanceCard) {
-  if (!window.confirm(t('balanceCards.admin.deleteConfirm'))) return
+  if (deletingCardId.value !== null || !window.confirm(t('balanceCards.admin.deleteConfirm'))) return
+  deletingCardId.value = card.id
   try {
     await adminAPI.balanceCards.delete(card.id)
     await loadCards()
@@ -299,6 +332,8 @@ async function deleteCard(card: UserBalanceCard) {
     appStore.showSuccess(t('balanceCards.admin.deleteSuccess'))
   } catch (error: any) {
     appStore.showError(error?.message || t('balanceCards.admin.deleteFailed'))
+  } finally {
+    deletingCardId.value = null
   }
 }
 

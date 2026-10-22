@@ -49,9 +49,9 @@ func scanBalanceCardPlan(row balanceCardRowScanner) (*service.BalanceCardPlan, e
 }
 
 func (r *balanceCardRepository) ListPlans(ctx context.Context, includeInactive bool) ([]service.BalanceCardPlan, error) {
-	query := `SELECT ` + balanceCardPlanColumns + ` FROM balance_card_plans`
+	query := `SELECT ` + balanceCardPlanColumns + ` FROM balance_card_plans WHERE deleted_at IS NULL`
 	if !includeInactive {
-		query += ` WHERE status = 'active'`
+		query += ` AND status = 'active'`
 	}
 	query += ` ORDER BY sort_order ASC, id ASC`
 	rows, err := r.db.QueryContext(ctx, query)
@@ -72,7 +72,7 @@ func (r *balanceCardRepository) ListPlans(ctx context.Context, includeInactive b
 
 func (r *balanceCardRepository) GetPlan(ctx context.Context, id int64) (*service.BalanceCardPlan, error) {
 	plan, err := scanBalanceCardPlan(r.db.QueryRowContext(ctx,
-		`SELECT `+balanceCardPlanColumns+` FROM balance_card_plans WHERE id = $1`, id))
+		`SELECT `+balanceCardPlanColumns+` FROM balance_card_plans WHERE id = $1 AND deleted_at IS NULL`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, service.ErrBalanceCardPlanNotFound
 	}
@@ -98,7 +98,7 @@ func (r *balanceCardRepository) UpdatePlan(ctx context.Context, id int64, input 
 		weekly_quota_usd=$6, monthly_quota_usd=$7, fallback_default=$8,
 		auto_reset_default=$9, max_reset_count=$10, status=$11,
 		sort_order=$12, price_cny=$13, for_sale=$14, purchase_url=$15, updated_at=NOW()
-		WHERE id=$16 RETURNING ` + balanceCardPlanColumns
+		WHERE id=$16 AND deleted_at IS NULL RETURNING ` + balanceCardPlanColumns
 	plan, err := scanBalanceCardPlan(r.db.QueryRowContext(ctx, query,
 		input.Name, input.Description, input.CardType, input.ValidityDays, input.DailyQuotaUSD,
 		input.WeeklyQuotaUSD, input.MonthlyQuotaUSD, input.FallbackDefault,
@@ -108,6 +108,23 @@ func (r *balanceCardRepository) UpdatePlan(ctx context.Context, id int64, input 
 		return nil, service.ErrBalanceCardPlanNotFound
 	}
 	return plan, err
+}
+
+func (r *balanceCardRepository) DeletePlan(ctx context.Context, id, actorID int64, now time.Time) error {
+	result, err := r.db.ExecContext(ctx, `UPDATE balance_card_plans
+		SET deleted_at=$2, deleted_by=NULLIF($3,0), status='inactive', for_sale=false, updated_at=$2
+		WHERE id=$1 AND deleted_at IS NULL`, id, now, actorID)
+	if err != nil {
+		return err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return service.ErrBalanceCardPlanNotFound
+	}
+	return nil
 }
 
 const balanceCardColumns = `
@@ -255,7 +272,7 @@ func normalizeUserBalanceCardsTx(ctx context.Context, tx *sql.Tx, userID int64, 
 
 func getAssignableBalanceCardPlanTx(ctx context.Context, tx *sql.Tx, planID int64) (*service.BalanceCardPlan, error) {
 	plan, err := scanBalanceCardPlan(tx.QueryRowContext(ctx,
-		`SELECT `+balanceCardPlanColumns+` FROM balance_card_plans WHERE id=$1`, planID))
+		`SELECT `+balanceCardPlanColumns+` FROM balance_card_plans WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, planID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, service.ErrBalanceCardPlanNotFound
 	}
@@ -890,15 +907,19 @@ func (r *balanceCardRepository) DeleteCard(ctx context.Context, id, actorID int6
 
 	var ownerID int64
 	var status string
-	err = tx.QueryRowContext(ctx, `SELECT user_id, status FROM user_balance_cards
-		WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&ownerID, &status)
+	var expiresAt time.Time
+	err = tx.QueryRowContext(ctx, `SELECT user_id, status, expires_at FROM user_balance_cards
+		WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&ownerID, &status, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, service.ErrBalanceCardNotFound
 	}
 	if err != nil {
 		return 0, err
 	}
-	if status != service.BalanceCardStatusRevoked {
+	// Match the effective expired status returned by balanceCardColumns.
+	expired := status == service.BalanceCardStatusExpired ||
+		((status == service.BalanceCardStatusActive || status == service.BalanceCardStatusPending) && !expiresAt.After(now))
+	if status != service.BalanceCardStatusRevoked && !expired {
 		return 0, service.ErrBalanceCardOperationConflict
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE user_balance_cards

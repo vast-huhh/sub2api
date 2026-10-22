@@ -709,6 +709,7 @@ func registerBalanceCardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		plans.GET("", h.Admin.BalanceCard.ListPlans)
 		plans.POST("", h.Admin.BalanceCard.CreatePlan)
 		plans.PUT("/:id", h.Admin.BalanceCard.UpdatePlan)
+		plans.DELETE("/:id", h.Admin.BalanceCard.DeletePlan)
 	}
 
 	cards := admin.Group("/balance-cards")

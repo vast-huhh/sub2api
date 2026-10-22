@@ -48,6 +48,9 @@ export default {
       redeem: '兑换卡密',
     },
     admin: {
+      deletePlanConfirm: '确定删除套餐“{name}”吗？删除后将从套餐管理和购买页移除，无法再分配或使用关联兑换码兑换。已发放的余额卡继续有效，额度和账务流水不受影响。',
+      deletePlanSuccess: '套餐已删除',
+      deletePlanFailed: '删除套餐失败',
       priceCNY: '商品售价（元）', forSale: '在套餐购买中上架', purchaseURL: '卡网购买链接',
       productHint: '启用套餐并填写大于 0 的售价后即可上架。用户点击“立即购买”会打开卡网链接；链接留空时显示“购买请找管理员”。',
       previewShop: '查看购买页', onSale: '已上架', offSale: '未上架', noPrice: '未定价',

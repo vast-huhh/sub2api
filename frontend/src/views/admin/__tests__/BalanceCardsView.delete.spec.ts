@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import BalanceCardsView from '@/views/admin/BalanceCardsView.vue'
 
-const { listPlans, listCards, deleteCard, createPlan, updatePlan, showSuccess, showError } = vi.hoisted(() => ({
+const { listPlans, listCards, deleteCard, deletePlan, createPlan, updatePlan, showSuccess, showError } = vi.hoisted(() => ({
   listPlans: vi.fn(),
   listCards: vi.fn(),
   deleteCard: vi.fn(),
+  deletePlan: vi.fn(),
   createPlan: vi.fn(),
   updatePlan: vi.fn(),
   showSuccess: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('@/api/admin', () => ({
       listPlans,
       listCards,
       delete: deleteCard,
+      deletePlan,
       assign: vi.fn(),
       bulkAssign: vi.fn(),
       createPlan,
@@ -47,7 +49,7 @@ const BaseDialogStub = defineComponent({
   template: '<div v-if="show"><slot /></div>'
 })
 
-function card(id: number, status: 'active' | 'revoked') {
+function card(id: number, status: 'active' | 'revoked' | 'expired' | 'pending' | 'suspended') {
   return {
     id,
     user_id: 1,
@@ -84,6 +86,22 @@ function page(items: ReturnType<typeof card>[]) {
   return { items, page: 1, page_size: 20, total: items.length, pages: 1 }
 }
 
+const plan = {
+  id: 1, name: 'Monthly plan', description: '', card_type: 'month', validity_days: 30,
+  daily_quota_usd: 10, weekly_quota_usd: 50, monthly_quota_usd: 200,
+  fallback_default: true, auto_reset_default: false, max_reset_count: 20,
+  status: 'active', sort_order: 0, price_cny: 20, for_sale: true, purchase_url: ''
+}
+
+function mountView() {
+  return mount(BalanceCardsView, {
+    global: { stubs: {
+      AppLayout: AppLayoutStub, BaseDialog: BaseDialogStub,
+      BalanceCardUserSelector: true, Icon: true, RouterLink: true
+    } }
+  })
+}
+
 describe('BalanceCardsView delete action', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -91,9 +109,13 @@ describe('BalanceCardsView delete action', () => {
     listPlans.mockResolvedValue([])
     listCards.mockResolvedValue(page([card(2, 'active'), card(1, 'revoked')]))
     deleteCard.mockResolvedValue({ message: 'ok' })
+    deletePlan.mockResolvedValue({ message: 'ok' })
   })
 
-  it('only offers deletion for revoked cards and refreshes both lists after deletion', async () => {
+  it('offers deletion for expired and revoked cards and refreshes after deletion', async () => {
+    listCards.mockResolvedValue(page([
+      card(5, 'pending'), card(4, 'suspended'), card(3, 'expired'), card(2, 'active'), card(1, 'revoked')
+    ]))
     const wrapper = mount(BalanceCardsView, {
       global: {
         stubs: {
@@ -107,16 +129,74 @@ describe('BalanceCardsView delete action', () => {
     await flushPromises()
 
     const deleteButtons = wrapper.findAll('button').filter(button => button.text() === 'common.delete')
-    expect(deleteButtons).toHaveLength(1)
+    expect(deleteButtons).toHaveLength(2)
 
-    listCards.mockResolvedValueOnce(page([card(2, 'active')]))
+    listCards.mockResolvedValueOnce(page([card(2, 'active'), card(1, 'revoked')]))
     await deleteButtons[0].trigger('click')
     await flushPromises()
 
     expect(window.confirm).toHaveBeenCalledWith('balanceCards.admin.deleteConfirm')
-    expect(deleteCard).toHaveBeenCalledWith(1)
+    expect(deleteCard).toHaveBeenCalledWith(3)
     expect(listCards).toHaveBeenCalledTimes(2)
     expect(showSuccess).toHaveBeenCalledWith('balanceCards.admin.deleteSuccess')
+  })
+
+  it('does not delete a card when confirmation is cancelled', async () => {
+    vi.mocked(window.confirm).mockReturnValue(false)
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'common.delete')!.trigger('click')
+    expect(deleteCard).not.toHaveBeenCalled()
+  })
+
+  it('returns to the previous page after deleting its last card', async () => {
+    listCards.mockResolvedValue({ ...page([card(1, 'expired')]), page: 2, pages: 2, total: 21 })
+    const wrapper = mountView()
+    await flushPromises()
+    listCards.mockResolvedValueOnce({ ...page([]), page: 2, pages: 1, total: 20 })
+      .mockResolvedValueOnce(page([card(2, 'active')]))
+    await wrapper.findAll('button').find(button => button.text() === 'common.delete')!.trigger('click')
+    await flushPromises()
+    expect(listCards).toHaveBeenLastCalledWith(1, 20, expect.any(Object))
+    expect(wrapper.text()).toContain('#2')
+  })
+
+  it('deletes a plan, clears its selected filter and keeps issued cards visible', async () => {
+    listPlans.mockResolvedValue([plan])
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('select').setValue('1')
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'balanceCards.admin.plans')!.trigger('click')
+    listPlans.mockResolvedValueOnce([])
+    await wrapper.get('article').findAll('button').find(button => button.text() === 'common.delete')!.trigger('click')
+    await flushPromises()
+    expect(window.confirm).toHaveBeenCalledWith('balanceCards.admin.deletePlanConfirm')
+    expect(deletePlan).toHaveBeenCalledWith(1)
+    expect(wrapper.findAll('article')).toHaveLength(0)
+    expect(wrapper.text()).toContain('common.noData')
+    expect(listCards).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ plan_id: undefined }))
+    expect(showSuccess).toHaveBeenCalledWith('balanceCards.admin.deletePlanSuccess')
+    await wrapper.findAll('button').find(button => button.text() === 'balanceCards.admin.issuedCards')!.trigger('click')
+    expect(wrapper.text()).toContain('#2')
+  })
+
+  it('keeps a plan when deletion is cancelled or fails', async () => {
+    listPlans.mockResolvedValue([plan])
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === 'balanceCards.admin.plans')!.trigger('click')
+    const button = wrapper.get('article').findAll('button').find(button => button.text() === 'common.delete')!
+    vi.mocked(window.confirm).mockReturnValue(false)
+    await button.trigger('click')
+    expect(deletePlan).not.toHaveBeenCalled()
+    vi.mocked(window.confirm).mockReturnValue(true)
+    deletePlan.mockRejectedValueOnce(new Error('Delete failed'))
+    await button.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('article')).toHaveLength(1)
+    expect(button.attributes('disabled')).toBeUndefined()
+    expect(showError).toHaveBeenCalledWith('Delete failed')
   })
 
   it('saves store settings and allows unlisting without clearing the price or store link', async () => {

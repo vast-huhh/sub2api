@@ -110,6 +110,18 @@ func (h *BalanceCardHandler) UpdatePlan(c *gin.Context) {
 	response.Success(c, plan)
 }
 
+func (h *BalanceCardHandler) DeletePlan(c *gin.Context) {
+	id, ok := adminBalanceCardID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeletePlan(c.Request.Context(), id, getAdminIDFromContext(c)); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Balance card plan deleted successfully"})
+}
+
 func (h *BalanceCardHandler) ListCards(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
 	filter := service.BalanceCardListFilter{Status: strings.TrimSpace(c.Query("status"))}
