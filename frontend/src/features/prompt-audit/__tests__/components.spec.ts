@@ -24,6 +24,24 @@ const endpoint = (): PromptAuditEndpointDraft => ({
 })
 
 describe('Prompt Audit components', () => {
+  it('creates a MiniMax chat node with suitable defaults and retains its type on edit', async () => {
+    const wrapper = mount(EndpointPool, {
+      props: { endpoints: [], probeResults: {}, probingIds: [] },
+      global: { stubs: { BaseDialog: DialogStub } },
+    })
+    await wrapper.get('[data-test="add-endpoint"]').trigger('click')
+    await wrapper.get('[aria-label="admin.promptAudit.pool.protocol"]').setValue('openai_chat')
+    expect(wrapper.get<HTMLInputElement>('[aria-label="admin.promptAudit.pool.model"]').element.value).toBe('MiniMax-M3.1-Flash')
+    expect(wrapper.get<HTMLInputElement>('[aria-label="admin.promptAudit.pool.baseUrl"]').element.value).toBe('https://api.minimaxi.com')
+    expect(wrapper.get<HTMLInputElement>('[aria-label="admin.promptAudit.pool.timeout"]').element.value).toBe('15000')
+    await wrapper.get('[data-test="save-endpoint"]').trigger('click')
+    const updated = wrapper.emitted('update:endpoints')?.at(-1)?.[0] as PromptAuditEndpointDraft[]
+    expect(updated[0]).toMatchObject({ protocol: 'openai_chat', model: 'MiniMax-M3.1-Flash' })
+    await wrapper.setProps({ endpoints: updated })
+    await wrapper.findAll('button').find(button => button.text().includes('common.edit'))!.trigger('click')
+    expect(wrapper.get<HTMLSelectElement>('[aria-label="admin.promptAudit.pool.protocol"]').element.value).toBe('openai_chat')
+  })
+
   beforeEach(() => vi.restoreAllMocks())
 
   it('edits a saved endpoint with blank-secret keep, explicit clear, replacement, and probe actions', async () => {

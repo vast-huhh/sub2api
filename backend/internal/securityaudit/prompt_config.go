@@ -238,12 +238,15 @@ func normalizeStorageConfig(cfg *storageConfig) {
 		ep.Name = strings.TrimSpace(ep.Name)
 		ep.Protocol = strings.TrimSpace(ep.Protocol)
 		if ep.Protocol == "" {
-			ep.Protocol = "openai_compatible"
+			ep.Protocol = ProtocolQwen3Guard
 		}
 		ep.BaseURL = strings.TrimSpace(ep.BaseURL)
 		ep.Model = strings.TrimSpace(ep.Model)
 		if ep.Model == "" {
 			ep.Model = DefaultGuardModel
+			if ep.Protocol == ProtocolChatAudit {
+				ep.Model = DefaultChatAuditModel
+			}
 		}
 		if ep.TimeoutMS == 0 {
 			ep.TimeoutMS = DefaultTimeoutMS
@@ -283,8 +286,8 @@ func validateStorageConfig(cfg storageConfig) error {
 			return infraerrors.BadRequest("prompt_audit_duplicate_endpoint", "审计节点 ID 不能重复")
 		}
 		seen[ep.ID] = struct{}{}
-		if ep.Protocol != "openai_compatible" {
-			return infraerrors.BadRequest("prompt_audit_invalid_endpoint_protocol", "审计节点仅支持 OpenAI 兼容协议")
+		if ep.Protocol != ProtocolQwen3Guard && ep.Protocol != ProtocolChatAudit {
+			return infraerrors.BadRequest("prompt_audit_invalid_endpoint_protocol", "请选择 Qwen3Guard 或普通聊天模型审计节点")
 		}
 		if _, err := NormalizeBaseURL(ep.BaseURL); err != nil {
 			return err

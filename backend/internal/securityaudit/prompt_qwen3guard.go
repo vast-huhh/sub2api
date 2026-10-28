@@ -209,6 +209,9 @@ func (s *OpenAICompatibleScanner) Scan(ctx context.Context, endpoint ActiveEndpo
 		"max_tokens":  64,
 		"seed":        42,
 	}
+	if endpoint.Protocol == ProtocolChatAudit {
+		payload = chatAuditPayload(endpoint, chunk)
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err}
@@ -247,7 +250,15 @@ func (s *OpenAICompatibleScanner) Scan(ctx context.Context, endpoint ActiveEndpo
 	if err != nil {
 		return nil, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err}
 	}
-	result, err := ParseQwen3Guard(content, enabledScanners)
+	var result *NormalizedResult
+	if endpoint.Protocol == ProtocolChatAudit {
+		if err := validateChatAuditCompletion(responseBody); err != nil {
+			return nil, err
+		}
+		result, err = parseChatAudit(content, enabledScanners)
+	} else {
+		result, err = ParseQwen3Guard(content, enabledScanners)
+	}
 	if err != nil {
 		return nil, err
 	}

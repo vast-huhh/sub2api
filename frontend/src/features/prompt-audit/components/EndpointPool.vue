@@ -94,6 +94,13 @@
 
     <BaseDialog :show="Boolean(editing)" :title="editingIndex < 0 ? t('admin.promptAudit.pool.add') : t('admin.promptAudit.pool.edit')" width="wide" @close="closeEditor">
       <form v-if="editing" class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveEditor">
+        <label class="space-y-1 text-sm text-gray-700 dark:text-dark-200 sm:col-span-2">
+          <span>{{ t('admin.promptAudit.pool.protocol') }}</span>
+          <select v-model="editing.protocol" class="input w-full" :aria-label="t('admin.promptAudit.pool.protocol')" @change="changeProtocol">
+            <option value="openai_compatible">{{ t('admin.promptAudit.pool.protocolGuard') }}</option>
+            <option value="openai_chat">{{ t('admin.promptAudit.pool.protocolChat') }}</option>
+          </select>
+        </label>
         <label class="space-y-1 text-sm text-gray-700 dark:text-dark-200">
           <span>{{ t('admin.promptAudit.pool.name') }}</span>
           <input v-model="editing.name" class="input w-full" required :aria-label="t('admin.promptAudit.pool.name')" />
@@ -143,7 +150,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PromptAuditEndpointDraft, PromptProbeResult } from '../types'
-import { cloneData, createDefaultEndpoint } from '../viewModel'
+import { cloneData, createDefaultEndpoint, DEFAULT_CHAT_AUDIT_MODEL, DEFAULT_GUARD_MODEL } from '../viewModel'
 
 const props = defineProps<{
   endpoints: PromptAuditEndpointDraft[]
@@ -169,6 +176,20 @@ function openEdit(endpoint: PromptAuditEndpointDraft) {
 function closeEditor() {
   editing.value = null
   editingIndex.value = -1
+}
+function changeProtocol() {
+  const endpoint = editing.value
+  if (!endpoint) return
+  const chat = endpoint.protocol === 'openai_chat'
+  if (!endpoint.model || endpoint.model === DEFAULT_GUARD_MODEL || endpoint.model === DEFAULT_CHAT_AUDIT_MODEL) {
+    endpoint.model = chat ? DEFAULT_CHAT_AUDIT_MODEL : DEFAULT_GUARD_MODEL
+  }
+  if (endpoint.base_url === 'http://127.0.0.1:8000' || endpoint.base_url === 'https://api.minimaxi.com') {
+    endpoint.base_url = chat ? 'https://api.minimaxi.com' : 'http://127.0.0.1:8000'
+  }
+  if (endpoint.timeout_ms === 3000 || endpoint.timeout_ms === 15000) {
+    endpoint.timeout_ms = chat ? 15000 : 3000
+  }
 }
 function saveEditor() {
   if (!editing.value?.id.trim() || !editing.value.name.trim() || !editing.value.base_url.trim()) return

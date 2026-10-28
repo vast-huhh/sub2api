@@ -63,6 +63,17 @@ describe('Prompt Audit view model', () => {
     expect(buildUpdateRequest(draft)).toMatchObject({ blocking_latest_turn_only: true })
   })
 
+  it('preserves a chat audit node and uses its model default when the model is blank', () => {
+    const draft = configToDraft(config())
+    draft.endpoints[0].protocol = 'openai_chat'
+    draft.endpoints[0].model = ' '
+    expect(buildUpdateRequest(draft).endpoints[0]).toMatchObject({
+      protocol: 'openai_chat', model: 'MiniMax-M3.1-Flash',
+    })
+    draft.endpoints[0].model = 'cn:deepseek-v4.1-flash'
+    expect(buildUpdateRequest(draft).endpoints[0].model).toBe('cn:deepseek-v4.1-flash')
+  })
+
   it('tracks dirty state from the full normalized save payload', () => {
     const original = configToDraft(config())
     const changed = configToDraft(config())

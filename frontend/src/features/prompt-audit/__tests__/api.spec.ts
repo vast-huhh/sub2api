@@ -41,4 +41,16 @@ describe('Prompt Audit API', () => {
       snapshot_max_id: 10, filter_hash: 'a'.repeat(64), confirmation_token: 'opaque-token', confirm: true,
     }))
   })
+
+  it('probes chat nodes with their selected type', async () => {
+    client.post.mockResolvedValue({ data: { ok: true } })
+    await promptAuditAPI.probeEndpoint({
+      id: 'minimax', name: 'MiniMax', protocol: 'openai_chat', base_url: 'https://api.minimaxi.com',
+      model: 'MiniMax-M3.1-Flash', token: '', clear_token: false, timeout_ms: 15000, input_limit: 4000,
+      enabled: true, has_token: true, token_status: 'configured',
+    })
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/endpoints/probe', expect.objectContaining({
+      endpoint: expect.objectContaining({ protocol: 'openai_chat', model: 'MiniMax-M3.1-Flash' }),
+    }))
+  })
 })

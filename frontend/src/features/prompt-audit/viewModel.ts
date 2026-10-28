@@ -7,6 +7,7 @@ import type {
 } from './types'
 
 export const DEFAULT_GUARD_MODEL = 'sileader/qwen3guard:0.6b'
+export const DEFAULT_CHAT_AUDIT_MODEL = 'MiniMax-M3.1-Flash'
 
 export const SCANNER_CATALOG = [
   { id: 'violent', label: 'Violent' },
@@ -73,9 +74,9 @@ export function buildUpdateRequest(draft: PromptAuditDraft): PromptAuditUpdateRe
     endpoints: draft.endpoints.map((endpoint) => ({
       id: endpoint.id.trim(),
       name: endpoint.name.trim(),
-      protocol: 'openai_compatible',
+      protocol: endpoint.protocol,
       base_url: endpoint.base_url.trim(),
-      model: endpoint.model.trim() || DEFAULT_GUARD_MODEL,
+      model: endpoint.model.trim() || (endpoint.protocol === 'openai_chat' ? DEFAULT_CHAT_AUDIT_MODEL : DEFAULT_GUARD_MODEL),
       token: endpoint.token.trim() || undefined,
       clear_token: endpoint.clear_token,
       timeout_ms: Number(endpoint.timeout_ms),

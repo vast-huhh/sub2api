@@ -1,7 +1,7 @@
 export default {
   promptAudit: {
     title: 'Prompt Audit',
-    description: 'Review user input asynchronously or block it synchronously through OpenAI-compatible Qwen3Guard nodes. Full prompts are stored with events for admin review.',
+    description: 'Review user input asynchronously or block it synchronously through Qwen3Guard or chat models. Full prompts are stored with events for admin review.',
     configVersion: 'Config version v{version}',
     tabs: { config: 'Configuration', events: 'Events' },
     actions: { refresh: 'Refresh runtime', retry: 'Retry', Allow: 'Allow', Warn: 'Warn', Block: 'Block' },
@@ -43,6 +43,7 @@ export default {
     metrics: { total: 'Total', allowed: 'Allowed', flagged: 'Flagged', blocked: 'Blocked', unavailable: 'Unavailable', timeouts: 'Timeouts', failovers: 'Failovers' },
     pool: {
       title: 'Audit pool', description: 'Enabled OpenAI-compatible nodes are tried in order. Probes run from the server network.',
+      protocol: 'Node type', protocolGuard: 'Qwen3Guard safety model', protocolChat: 'Chat model (MiniMax and others)',
       add: 'Add node', edit: 'Edit node', empty: 'No audit nodes configured.', node: 'Node', model: 'Model', limits: 'Timeout / chunk limit', credential: 'Credential and probe',
       configured: 'API Key configured', missing: 'API Key missing', invalid: 'API Key cannot be decrypted; re-enter it', probe: 'Test connection', probing: 'Probing…',
       probeProgress: 'Config validated ✓ · request sent · awaiting service response…', probeResult: 'Config ✓ · request ✓ · HTTP {http} · {status} · {latency} ms',
@@ -53,7 +54,7 @@ export default {
     policy: {
       title: 'Audit policy', description: 'Configure group scope, nine input-risk categories, workers, and queue bounds.', scope: 'Scope', allGroups: 'All groups', selectedGroups: 'Selected groups',
       searchGroups: 'Search groups', noGroups: 'No matching groups', missingGroups: 'Configured IDs for groups that no longer exist', selectedCount: '{count} groups selected',
-      scanners: 'Qwen3Guard input-risk categories', workerCount: 'Worker count', queueCapacity: 'Persistent queue capacity', strategy: 'Node strategy', strategyHint: 'Try nodes in configuration order and fail over when allowed.',
+      scanners: 'Input-risk categories', workerCount: 'Worker count', queueCapacity: 'Persistent queue capacity', strategy: 'Node strategy', strategyHint: 'Try nodes in configuration order and fail over when allowed.',
     },
     saveBar: { enabled: 'Enable prompt audit', blocking: 'Synchronous blocking', blockingLatestTurnOnly: 'Only latest input and prior output', storePass: 'Store safe events', dirty: 'Unsaved changes', synced: 'Configuration synced' },
     blockingConfirm: {

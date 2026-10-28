@@ -20,7 +20,10 @@ const (
 	ErrorCodeEncryptionKeyRequired = "prompt_audit_encryption_key_required"
 	ErrorCodeRequiresEnabled       = "prompt_guard_requires_audit_enabled"
 
-	DefaultGuardModel = "sileader/qwen3guard:0.6b"
+	ProtocolQwen3Guard    = "openai_compatible"
+	ProtocolChatAudit     = "openai_chat"
+	DefaultGuardModel     = "sileader/qwen3guard:0.6b"
+	DefaultChatAuditModel = "MiniMax-M3.1-Flash"
 )
 
 type Mode string

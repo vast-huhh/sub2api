@@ -265,7 +265,7 @@ func (s *PromptService) Probe(ctx context.Context, request ProbeRequest) ProbeRe
 	if int64(len(responseBody)) > maxGuardResponseBytes {
 		return s.finishProbe(endpoint.ID, started, ProbeResult{Status: "failed", ErrorCode: "response_too_large", Message: "审计节点响应无效", HTTPStatus: resp.StatusCode, TokenApplied: tokenApplied})
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 && modelsResponseReady(responseBody, endpoint.Model) {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && modelsResponseReady(responseBody, endpoint.Model) && endpoint.Protocol != ProtocolChatAudit {
 		return s.finishProbe(endpoint.ID, started, ProbeResult{OK: true, Status: "healthy", Message: "审计节点连接正常", HTTPStatus: resp.StatusCode, TokenApplied: tokenApplied})
 	}
 	if (resp.StatusCode >= 200 && resp.StatusCode < 300) || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
@@ -333,9 +333,16 @@ func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoi
 			}
 		}
 	}
+	protocol := strings.TrimSpace(input.Protocol)
+	if protocol == "" {
+		protocol = ProtocolQwen3Guard
+	}
 	model := strings.TrimSpace(input.Model)
 	if model == "" {
 		model = DefaultGuardModel
+		if protocol == ProtocolChatAudit {
+			model = DefaultChatAuditModel
+		}
 	}
 	timeout := input.TimeoutMS
 	if timeout == 0 {
@@ -346,7 +353,7 @@ func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoi
 		limit = DefaultInputLimit
 	}
 	storage := storageConfig{Enabled: false, Strategy: "priority", WorkerCount: DefaultWorkerCount, QueueCapacity: DefaultQueueCapacity, Scanners: append([]string(nil), AllScannerIDs...), AllGroups: true,
-		Endpoints: []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: "openai_compatible", BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}}
+		Endpoints: []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: protocol, BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}}
 	if storage.Endpoints[0].ID == "" {
 		storage.Endpoints[0].ID = "probe"
 	}
@@ -356,7 +363,7 @@ func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoi
 	if err := validateStorageConfig(storage); err != nil {
 		return ActiveEndpoint{}, false, err
 	}
-	return ActiveEndpoint{ID: storage.Endpoints[0].ID, Name: storage.Endpoints[0].Name, Protocol: "openai_compatible", BaseURL: baseURL, Model: model, Token: token, TimeoutMS: timeout, InputLimit: limit, Enabled: true}, token != "", nil
+	return ActiveEndpoint{ID: storage.Endpoints[0].ID, Name: storage.Endpoints[0].Name, Protocol: protocol, BaseURL: baseURL, Model: model, Token: token, TimeoutMS: timeout, InputLimit: limit, Enabled: true}, token != "", nil
 }
 
 func (s *PromptService) finishProbe(id string, started time.Time, result ProbeResult) ProbeResult {
