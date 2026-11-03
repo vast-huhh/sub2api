@@ -32,6 +32,11 @@ func TestSetCodexUserAgentVersion(t *testing.T) {
 		"cccc/0.146.0 (Ubuntu 22.4.0; x86_64) screen (codex-tui; 0.146.0)",
 		SetCodexUserAgentVersion("cccc/0.142.0 (Ubuntu 22.4.0; x86_64) screen (codex-tui; 0.142.0)", "0.146.0"),
 	)
+	// Desktop / IDE 尾部是独立的应用版本，不随 Core 版本重建。
+	require.Equal(t,
+		"Codex Desktop/0.146.0 (Mac OS 26.0.1; arm64) unknown (Codex Desktop; 26.616.71553)",
+		SetCodexUserAgentVersion("Codex Desktop/0.142.0 (Mac OS 26.0.1; arm64) unknown (Codex Desktop; 26.616.71553)", "0.146.0"),
+	)
 	// OS 括号组不是客户端标识，不得被误改。
 	require.Equal(t,
 		"codex_cli_rs/0.146.0 (Ubuntu 22.4.0; x86_64)",

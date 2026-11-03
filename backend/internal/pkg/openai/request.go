@@ -312,12 +312,20 @@ func SetCodexUserAgentVersion(userAgent, version string) string {
 		// `client/` 没有版本段，不是可重建的 Codex 形态。
 		return ""
 	}
-	return rewriteCodexUATrailerVersion(client+"/"+version+tail, version)
+	previous := strings.TrimSpace(rest)
+	if space := strings.IndexByte(previous, ' '); space >= 0 {
+		previous = previous[:space]
+	}
+	return rewriteCodexUATrailerVersion(client+"/"+version+tail, previous, version)
 }
 
 // rewriteCodexUATrailerVersion 把尾部官方客户端标识组 `(name; version)` 的版本改成 version。
 // 括号组缺少 `;` 分隔的版本、或 name 不是官方 originator 时原样返回。
-func rewriteCodexUATrailerVersion(ua, version string) string {
+//
+// 只有尾部版本原本就等于首段版本（previous）时，两者才是同一个版本声明，需要一并更新。
+// Desktop / IDE 的尾部是独立的应用版本（如 `(Codex Desktop; 26.616.71553)`），
+// 与首段的内嵌 Core 版本无关，必须原样保留，否则会把应用版本错写成 Core 版本。
+func rewriteCodexUATrailerVersion(ua, previous, version string) string {
 	open := strings.LastIndex(ua, "(")
 	if open < 0 {
 		return ua
@@ -333,6 +341,9 @@ func rewriteCodexUATrailerVersion(ua, version string) string {
 	}
 	name := strings.TrimSpace(inner[:semi])
 	if name == "" || !IsCodexOfficialClientOriginator(name) {
+		return ua
+	}
+	if trailerVersion := strings.TrimSpace(inner[semi+1:]); trailerVersion != strings.TrimSpace(previous) {
 		return ua
 	}
 	return ua[:open+1] + name + "; " + version + ua[open+1+closeIdx:]

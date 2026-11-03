@@ -344,12 +344,16 @@ func (s *OpenAIOAuthService) RefreshAccountToken(ctx context.Context, account *A
 		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_OAUTH_INVALID_ACCOUNT_TYPE", "account is not an OAuth account")
 	}
 
-	var proxyURL string
-	if account.ProxyID != nil && s.proxyRepo != nil {
-		proxy, err := s.proxyRepo.GetByID(ctx, *account.ProxyID)
-		if err == nil && proxy != nil {
-			proxyURL = proxy.URL()
-		}
+	// Refresh tokens are the most sensitive credential this service sends: a
+	// failed proxy lookup must fail the refresh instead of going direct.
+	// Always re-read the bound proxy so an edited proxy takes effect immediately.
+	loadedProxy := account.Proxy
+	if s.proxyRepo != nil {
+		loadedProxy = nil
+	}
+	proxyURL, err := resolveConfiguredProxyURL(ctx, s.proxyRepo, account.ProxyID, loadedProxy)
+	if err != nil {
+		return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_OAUTH_PROXY_UNAVAILABLE", err.Error())
 	}
 
 	accessToken := account.GetCredential("access_token")

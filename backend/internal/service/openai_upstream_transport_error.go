@@ -71,6 +71,11 @@ func classifyUpstreamTransportError(err error) upstreamTransportErrorClass {
 	}
 
 	// — Typed checks (preferred) ——————————————————————————————————————————————
+	// A bound proxy that cannot be resolved stays broken until the account is
+	// reloaded; unscheduling it also resyncs the scheduler's cached account.
+	if errors.Is(err, ErrAccountProxyBindingUnavailable) {
+		return upstreamTransportErrorClass{Persistent: true}
+	}
 	if errors.Is(err, syscall.ECONNREFUSED) ||
 		errors.Is(err, syscall.EHOSTUNREACH) ||
 		errors.Is(err, syscall.ENETUNREACH) {

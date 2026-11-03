@@ -191,9 +191,9 @@ func (s *OpenAIGatewayService) modelCatalogProtocols(ctx context.Context, accoun
 	url := buildOpenAIModelsURL(base)
 	key := modelProtocolCatalogKey(account, url)
 	headers := modelProtocolCatalogHeaders(account, url)
-	proxyURL := ""
-	if account.ProxyID != nil && account.Proxy != nil {
-		proxyURL = account.Proxy.URL()
+	proxyURL, err := boundAccountProxyURL(account)
+	if err != nil {
+		return nil
 	}
 	accountID, concurrency := account.ID, account.Concurrency
 	return upstreamModelProtocols.lookup(ctx, key, model, time.Now(), func() {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -96,14 +97,61 @@ func scopeCodexAccountIdentityValue(account *Account, apiKeyID int64, kind, raw 
 	if raw == "" || namespace == "" {
 		return raw
 	}
+	if scoped, ok := scopeCodexAccountIdentityComposite(account, apiKeyID, kind, raw); ok {
+		return scoped
+	}
 	return deriveStableUUIDv4(fmt.Sprintf(
 		"sub2api:codex-account-identity:%s:user:%d:account:%s:kind:%s:value:%s",
 		codexAccountIdentityNamespaceVersion,
 		apiKeyID,
 		namespace,
-		kind,
+		codexAccountIdentityDerivationKind(kind),
 		raw,
 	))
+}
+
+// codexAccountIdentityDerivationKind folds the IDs Codex draws from one thread
+// family into a single derivation domain. Codex uses the root thread ID as the
+// session ID (and, by default, as prompt_cache_key), and parent/fork references
+// point at other threads' IDs. Deriving "session" and "thread" separately turned
+// equal inputs into unequal outputs: every root request looked like a subagent
+// thread and parent references pointed at IDs upstream never saw. Distinct raw
+// values still derive distinct outputs, so isolation cardinality is unchanged.
+//
+// "session" is the canonical domain so session_id and prompt_cache_key keep
+// their existing derived values (no prompt-cache churn on deploy).
+func codexAccountIdentityDerivationKind(kind string) string {
+	switch kind {
+	case "thread":
+		return "session"
+	}
+	return kind
+}
+
+const codexAccountIdentityUUIDPattern = `[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`
+
+// Codex window IDs are "<thread uuid>:<window number>".
+var codexAccountIdentityWindowPattern = regexp.MustCompile(`^(` + codexAccountIdentityUUIDPattern + `):([0-9]+)$`)
+
+// Codex subagent prompt cache keys are "<source>:<parent thread uuid>".
+var codexAccountIdentityPromptCachePattern = regexp.MustCompile(`^([A-Za-z0-9_-]{1,64}):(` + codexAccountIdentityUUIDPattern + `)$`)
+
+// scopeCodexAccountIdentityComposite scopes only the identity part of Codex's
+// composite values and keeps their shape. Hashing the whole string collapsed
+// "<thread>:7" into a bare UUID, losing both the thread link and the window
+// number; real clients never send a bare UUID in these fields.
+func scopeCodexAccountIdentityComposite(account *Account, apiKeyID int64, kind, raw string) (string, bool) {
+	switch kind {
+	case "window":
+		if m := codexAccountIdentityWindowPattern.FindStringSubmatch(raw); m != nil {
+			return scopeCodexAccountIdentityValue(account, apiKeyID, "thread", m[1]) + ":" + m[2], true
+		}
+	case "prompt-cache":
+		if m := codexAccountIdentityPromptCachePattern.FindStringSubmatch(raw); m != nil {
+			return m[1] + ":" + scopeCodexAccountIdentityValue(account, apiKeyID, "thread", m[2]), true
+		}
+	}
+	return "", false
 }
 
 var codexAccountIdentityFields = []struct {
@@ -121,6 +169,13 @@ var codexAccountIdentityFields = []struct {
 	{name: "window_id", kind: "window"},
 	{name: "x-codex-window-id", kind: "window"},
 	{name: "x-client-request-id", kind: "request"},
+	// References to other threads/turns must map exactly like the IDs they
+	// point at; left raw they dangle and leak the client's original IDs.
+	{name: "parent_thread_id", kind: "thread"},
+	{name: "x-codex-parent-thread-id", kind: "thread"},
+	{name: "forked_from_thread_id", kind: "thread"},
+	{name: "root_turn_id", kind: "turn"},
+	{name: "parent_turn_id", kind: "turn"},
 }
 
 func applyCodexAccountIdentityFields(values map[string]any, account *Account, apiKeyID int64) bool {
