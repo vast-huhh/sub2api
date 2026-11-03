@@ -8,6 +8,8 @@ import type {
   Proxy,
   ProxyAccountSummary,
   ProxyQualityCheckResult,
+  ProxyExitLocation,
+  ProxyExitLocationRefreshResult,
   CreateProxyRequest,
   UpdateProxyRequest,
   PaginatedResponse,
@@ -166,6 +168,22 @@ export async function checkProxyQuality(id: number): Promise<ProxyQualityCheckRe
 }
 
 /**
+ * List the last known egress location (IP / timezone / geo) of every proxy.
+ */
+export async function getExitLocations(): Promise<ProxyExitLocation[]> {
+  const { data } = await apiClient.get<ProxyExitLocation[]>('/admin/proxies/exit-locations')
+  return Array.isArray(data) ? data : []
+}
+
+/**
+ * Probe one proxy's egress location now.
+ */
+export async function refreshExitLocation(id: number): Promise<ProxyExitLocationRefreshResult> {
+  const { data } = await apiClient.post<ProxyExitLocationRefreshResult>(`/admin/proxies/${id}/exit-location/refresh`)
+  return data
+}
+
+/**
  * Get proxy usage statistics
  * @param id - Proxy ID
  * @returns Proxy usage statistics
@@ -275,6 +293,8 @@ export const proxiesAPI = {
   toggleStatus,
   testProxy,
   checkProxyQuality,
+  getExitLocations,
+  refreshExitLocation,
   getStats,
   getProxyAccounts,
   batchCreate,

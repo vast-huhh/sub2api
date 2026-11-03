@@ -300,6 +300,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	// Codex transforms may normalize the model after the initial mapping pass;
 	// record the final slug immediately before policy/auth/upstream dispatch.
 	SetOpsUpstreamModel(c, upstreamModel)
+	responsesBody = s.applyOpenAIOutboundLocaleBody(ctx, account, responsesBody, "chat_completions")
 
 	if account.Type == AccountTypeAPIKey {
 		if trimmedKey := strings.TrimSpace(promptCacheKey); trimmedKey != "" {

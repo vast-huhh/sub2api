@@ -58,6 +58,7 @@ func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Co
 		return nil, fmt.Errorf("sanitize alpha search request body: %w", err)
 	}
 	body = sanitizedBody
+	body = s.applyOpenAIOutboundLocaleAlphaSearchBody(ctx, account, body)
 
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {

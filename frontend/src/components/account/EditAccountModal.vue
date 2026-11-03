@@ -2477,6 +2477,63 @@
         </div>
       </div>
 
+      <!-- 出站时区 / 搜索位置跟随代理（仅 OpenAI OAuth） -->
+      <div
+        v-if="account?.platform === 'openai' && account?.type === 'oauth'"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        data-testid="edit-outbound-timezone-section"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <label class="input-label mb-0">{{ t('admin.accounts.openai.outboundTimezoneMode') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.openai.outboundTimezoneModeDesc') }}
+            </p>
+          </div>
+          <div class="w-52 flex-shrink-0">
+            <Select v-model="outboundTimezoneMode" data-testid="edit-outbound-timezone-mode-select" :options="outboundTimezoneModeOptions" />
+          </div>
+        </div>
+        <div v-if="outboundTimezoneMode === 'manual'" class="mt-3">
+          <input
+            v-model="outboundTimezoneManual"
+            type="text"
+            class="input"
+            data-testid="edit-outbound-timezone-manual-input"
+            :placeholder="t('admin.accounts.openai.outboundTimezoneManualPlaceholder')"
+          />
+        </div>
+        <template v-if="outboundTimezoneMode === 'follow_proxy'">
+          <p class="mt-2 text-xs" :class="outboundTimezoneStatus.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'" data-testid="edit-outbound-timezone-status">
+            {{ outboundTimezoneStatus.text }}
+          </p>
+          <div class="mt-3 flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <label class="input-label mb-0">{{ t('admin.accounts.openai.outboundSearchLocation') }}</label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.openai.outboundSearchLocationDesc') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              data-testid="edit-outbound-search-location-toggle"
+              @click="outboundSearchLocation = !outboundSearchLocation"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                outboundSearchLocation ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  outboundSearchLocation ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+        </template>
+      </div>
+
       <!-- OpenAI 订阅档位手动覆盖（Plus/Pro/Free），仅 OAuth 非影子账号 -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
@@ -3247,6 +3304,7 @@ import type {
   GrokMediaEligibilityState,
   OpenCodeGoUsageState,
   OpenCodeGoUsageWindow,
+  ProxyExitLocation,
   TempUnschedulableScope
 } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -3859,6 +3917,52 @@ const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OF
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
 type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
+type OutboundTimezoneMode = 'off' | 'follow_proxy' | 'manual'
+const outboundTimezoneMode = ref<OutboundTimezoneMode>('off')
+const outboundTimezoneManual = ref('')
+const outboundSearchLocation = ref(true)
+const outboundExitLocations = ref<Record<number, ProxyExitLocation>>({})
+const outboundTimezoneModeOptions = computed(() => [
+  { value: 'off' as OutboundTimezoneMode, label: t('admin.accounts.openai.outboundTimezoneOff') },
+  { value: 'follow_proxy' as OutboundTimezoneMode, label: t('admin.accounts.openai.outboundTimezoneFollowProxy') },
+  { value: 'manual' as OutboundTimezoneMode, label: t('admin.accounts.openai.outboundTimezoneManual') }
+])
+const loadOutboundExitLocations = async () => {
+  try {
+    const rows = await adminAPI.proxies.getExitLocations()
+    const next: Record<number, ProxyExitLocation> = {}
+    for (const row of rows) {
+      next[row.proxy_id] = row
+    }
+    outboundExitLocations.value = next
+  } catch (error) {
+    console.error('Error loading proxy exit locations:', error)
+  }
+}
+const outboundTimezoneStatus = computed(() => {
+  const proxyID = form.proxy_id
+  if (!proxyID) {
+    return { ok: false, text: t('admin.accounts.openai.outboundTimezoneNoProxy') }
+  }
+  const loc = outboundExitLocations.value[proxyID]
+  if (!loc || !loc.current || !loc.succeeded_at || !loc.timezone) {
+    return { ok: false, text: t('admin.accounts.openai.outboundTimezonePending') }
+  }
+  const place = [loc.country_code, loc.region, loc.city].filter(Boolean).join(' / ') || '-'
+  return {
+    ok: true,
+    text: t('admin.accounts.openai.outboundTimezoneEffective', {
+      timezone: loc.timezone,
+      place,
+      time: new Date(loc.succeeded_at).toLocaleString()
+    })
+  }
+})
+watch(outboundTimezoneMode, (mode) => {
+  if (mode === 'follow_proxy') {
+    void loadOutboundExitLocations()
+  }
+})
 const codexFingerprintMode = ref<CodexFingerprintMode>('off')
 type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
 const codexImageToolMode = ref<CodexImageToolMode>('inherit')
@@ -4356,6 +4460,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   codexCLIOnlyEnabled.value = false
   codexCLIOnlyAppServerEnabled.value = false
   codexFingerprintMode.value = 'off'
+  outboundTimezoneMode.value = 'off'
+  outboundTimezoneManual.value = ''
+  outboundSearchLocation.value = true
   codexImageToolMode.value = 'inherit'
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
@@ -4413,6 +4520,13 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       codexFingerprintMode.value = (['off', 'device', 'session', 'full'].includes(fpMode || '')
         ? fpMode as CodexFingerprintMode
         : 'off')
+      const tzMode = extra?.openai_outbound_timezone_mode as string | undefined
+      outboundTimezoneMode.value = tzMode === 'follow_proxy' || tzMode === 'manual' ? tzMode : 'off'
+      outboundTimezoneManual.value = typeof extra?.openai_outbound_timezone === 'string' ? extra.openai_outbound_timezone : ''
+      outboundSearchLocation.value = extra?.openai_outbound_search_location !== false
+      if (outboundTimezoneMode.value === 'follow_proxy') {
+        void loadOutboundExitLocations()
+      }
     }
     const credentials = newAccount.credentials as Record<string, unknown> | undefined
     const compactMappings = credentials?.compact_model_mapping as Record<string, string> | undefined
@@ -6010,6 +6124,25 @@ const handleSubmit = async () => {
           newExtra.codex_fingerprint_mode = codexFingerprintMode.value
         } else {
           delete newExtra.codex_fingerprint_mode
+        }
+
+        // 出站时区：off 不落键；search location 默认开，只在显式关闭时落 false。
+        if (outboundTimezoneMode.value === 'off') {
+          delete newExtra.openai_outbound_timezone_mode
+          delete newExtra.openai_outbound_timezone
+          delete newExtra.openai_outbound_search_location
+        } else {
+          newExtra.openai_outbound_timezone_mode = outboundTimezoneMode.value
+          if (outboundTimezoneMode.value === 'manual') {
+            newExtra.openai_outbound_timezone = outboundTimezoneManual.value.trim()
+          } else {
+            delete newExtra.openai_outbound_timezone
+          }
+          if (outboundTimezoneMode.value === 'follow_proxy' && !outboundSearchLocation.value) {
+            newExtra.openai_outbound_search_location = false
+          } else {
+            delete newExtra.openai_outbound_search_location
+          }
         }
       }
 

@@ -444,6 +444,23 @@ func ProvideClaudeCodeVersionSyncService(
 	return svc
 }
 
+// ProvideOpenAIOutboundLocaleService creates and starts the per-proxy exit
+// location service and attaches it to the OpenAI gateway.
+func ProvideOpenAIOutboundLocaleService(
+	repo ProxyExitLocationRepository,
+	prober ProxyExitLocationProber,
+	proxyRepo ProxyRepository,
+	gateway *OpenAIGatewayService,
+	lockCache LeaderLockCache,
+	db *sql.DB,
+) *OpenAIOutboundLocaleService {
+	svc := NewOpenAIOutboundLocaleService(repo, prober, proxyRepo)
+	svc.SetLeaderLock(lockCache, db)
+	gateway.SetOutboundLocaleService(svc)
+	svc.Start()
+	return svc
+}
+
 // ProvideProxyExpiryService creates and starts ProxyExpiryService.
 func ProvideProxyExpiryService(proxyRepo ProxyRepository) *ProxyExpiryService {
 	svc := NewProxyExpiryService(proxyRepo, time.Minute)
@@ -974,6 +991,7 @@ var ProviderSet = wire.NewSet(
 	ProvideOpenAICodexVersionSyncService,
 	ProvideClaudeCodeVersionSyncService,
 	ProvideProxyExpiryService,
+	ProvideOpenAIOutboundLocaleService,
 	ProvideSubscriptionExpiryService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,

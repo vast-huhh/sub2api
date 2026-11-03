@@ -15,7 +15,8 @@ import (
 
 // ProxyHandler handles admin proxy management
 type ProxyHandler struct {
-	adminService service.AdminService
+	adminService   service.AdminService
+	outboundLocale *service.OpenAIOutboundLocaleService
 }
 
 // NewProxyHandler creates a new admin proxy handler

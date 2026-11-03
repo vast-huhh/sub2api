@@ -162,6 +162,8 @@ var ProviderSet = wire.NewSet(
 	ProvidePricingRemoteClient,
 	ProvideGitHubReleaseClient,
 	NewProxyExitInfoProber,
+	NewProxyExitLocationRepository,
+	NewProxyExitLocationProber,
 	NewClaudeUsageFetcher,
 	NewClaudeOAuthClient,
 	NewHTTPUpstream,

@@ -29,6 +29,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, filterErr
 	}
 	body = filteredBody
+	// Outbound locale (timezone / search location) follows this attempt's account.
+	body = s.applyOpenAIOutboundLocaleBody(ctx, account, body, "http")
 	clearGrokResponsesClientToolMapping(c)
 	clearOpenAIResponsesClientToolMapping(c)
 	clearOpenAIResponsesNamespaceNames(c)

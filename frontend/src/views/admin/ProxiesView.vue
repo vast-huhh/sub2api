@@ -241,6 +241,27 @@
                   {{ qualityOverallLabel(row.quality_status) }}
                 </span>
               </div>
+              <div class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <span
+                  v-if="exitLocations[row.id]"
+                  data-testid="proxy-exit-location"
+                  :class="exitLocations[row.id].current && exitLocations[row.id].succeeded_at ? '' : 'text-amber-600 dark:text-amber-400'"
+                  :title="exitLocationTitle(exitLocations[row.id])"
+                >
+                  {{ exitLocationLabel(exitLocations[row.id]) }}
+                </span>
+                <button
+                  type="button"
+                  class="inline-flex items-center rounded p-0.5 hover:text-primary-600 disabled:opacity-50 dark:hover:text-primary-400"
+                  :disabled="refreshingExitProxyIds.has(row.id)"
+                  :title="t('admin.proxies.exitLocationRefresh')"
+                  data-testid="proxy-exit-location-refresh"
+                  @click="handleRefreshExitLocation(row)"
+                >
+                  <Icon name="refresh" size="xs" :class="refreshingExitProxyIds.has(row.id) ? 'animate-spin' : ''" />
+                  <span v-if="!exitLocations[row.id]" class="ml-0.5">{{ t('admin.proxies.exitLocationRefresh') }}</span>
+                </button>
+              </div>
             </div>
           </template>
 
@@ -968,7 +989,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { Proxy, ProxyAccountSummary, ProxyProtocol, ProxyQualityCheckResult } from '@/types'
+import type { Proxy, ProxyAccountSummary, ProxyExitLocation, ProxyProtocol, ProxyQualityCheckResult } from '@/types'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -1071,6 +1092,8 @@ const submitting = ref(false)
 const exportingData = ref(false)
 const testingProxyIds = ref<Set<number>>(new Set())
 const qualityCheckingProxyIds = ref<Set<number>>(new Set())
+const exitLocations = ref<Record<number, ProxyExitLocation>>({})
+const refreshingExitProxyIds = ref<Set<number>>(new Set())
 const batchTesting = ref(false)
 const batchQualityChecking = ref(false)
 const proxyTableRef = ref<HTMLElement | null>(null)
@@ -1187,6 +1210,64 @@ const buildProxyQueryFilters = () => ({
   sort_order: sortState.sort_order
 })
 
+const loadExitLocations = async () => {
+  try {
+    const rows = await adminAPI.proxies.getExitLocations()
+    const next: Record<number, ProxyExitLocation> = {}
+    for (const row of rows) {
+      next[row.proxy_id] = row
+    }
+    exitLocations.value = next
+  } catch (error) {
+    console.error('Error loading proxy exit locations:', error)
+  }
+}
+
+const exitLocationLabel = (loc: ProxyExitLocation) => {
+  if (!loc.current || !loc.succeeded_at || !loc.timezone) {
+    return t('admin.proxies.exitLocationUnknown')
+  }
+  const place = [loc.country_code, loc.city].filter(Boolean).join(' ')
+  return place ? `${loc.timezone} · ${place}` : loc.timezone
+}
+
+const exitLocationTitle = (loc: ProxyExitLocation) => {
+  const lines = [
+    `${t('admin.proxies.exitLocationIP')}: ${loc.exit_ip || '-'}`,
+    `${t('admin.proxies.exitLocationSucceededAt')}: ${loc.succeeded_at ? formatDateTime(loc.succeeded_at) : '-'}`,
+    `${t('admin.proxies.exitLocationNextProbe')}: ${formatDateTime(loc.next_probe_at)}`
+  ]
+  if (!loc.current) {
+    lines.push(t('admin.proxies.exitLocationOutdated'))
+  }
+  if (loc.last_error) {
+    lines.push(`${t('admin.proxies.exitLocationLastError')}: ${loc.last_error}`)
+  }
+  return lines.join('\n')
+}
+
+const handleRefreshExitLocation = async (proxy: Proxy) => {
+  if (refreshingExitProxyIds.value.has(proxy.id)) {
+    return
+  }
+  refreshingExitProxyIds.value = new Set(refreshingExitProxyIds.value).add(proxy.id)
+  try {
+    const result = await adminAPI.proxies.refreshExitLocation(proxy.id)
+    exitLocations.value = { ...exitLocations.value, [proxy.id]: result.location }
+    if (result.error) {
+      appStore.showError(t('admin.proxies.exitLocationRefreshFailed', { error: result.error }))
+    } else {
+      appStore.showSuccess(t('admin.proxies.exitLocationRefreshed', { timezone: result.location.timezone }))
+    }
+  } catch (error: any) {
+    appStore.showError(error?.response?.data?.message || error?.message || t('admin.proxies.exitLocationRefreshFailed', { error: '' }))
+  } finally {
+    const next = new Set(refreshingExitProxyIds.value)
+    next.delete(proxy.id)
+    refreshingExitProxyIds.value = next
+  }
+}
+
 const loadProxies = async () => {
   if (abortController) {
     abortController.abort()
@@ -1207,6 +1288,7 @@ const loadProxies = async () => {
     proxies.value = response.items
     pagination.total = response.total
     pagination.pages = response.pages
+    void loadExitLocations()
   } catch (error) {
     if (isAbortError(error)) {
       return

@@ -125,6 +125,13 @@ func ProvideGatewayHandler(
 	return h
 }
 
+// ProvideProxyHandler builds the admin proxy handler with exit-location support.
+func ProvideProxyHandler(adminService service.AdminService, outboundLocale *service.OpenAIOutboundLocaleService) *admin.ProxyHandler {
+	h := admin.NewProxyHandler(adminService)
+	h.SetOutboundLocaleService(outboundLocale)
+	return h
+}
+
 func ProvideOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
 	pluginManager *service.PluginManager,
@@ -274,7 +281,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewAntigravityOAuthHandler,
 	admin.NewGrokOAuthHandler,
 	admin.NewCNProviderHandler,
-	admin.NewProxyHandler,
+	ProvideProxyHandler,
 	admin.NewRedeemHandler,
 	admin.NewPromoHandler,
 	ProvideAdminSettingHandler,

@@ -1112,6 +1112,29 @@ export interface ProxyQualityCheckItem {
   cf_ray?: string
 }
 
+/** Last known egress location of a proxy (outbound timezone follow-proxy). */
+export interface ProxyExitLocation {
+  proxy_id: number
+  /** false when the proxy's connection settings changed after this probe */
+  current: boolean
+  exit_ip: string
+  country_code: string
+  region: string
+  city: string
+  timezone: string
+  source: string
+  succeeded_at: string | null
+  attempted_at: string
+  next_probe_at: string
+  failure_count: number
+  last_error: string
+}
+
+export interface ProxyExitLocationRefreshResult {
+  location: ProxyExitLocation
+  error?: string
+}
+
 export interface ProxyQualityCheckResult {
   proxy_id: number
   score: number

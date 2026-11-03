@@ -380,6 +380,9 @@ func normalizeOpenAILongContextBillingExtra(platform string, extra map[string]an
 	if err := ValidateOpenAILongContextBillingExtra(platform, extra); err != nil {
 		return nil, err
 	}
+	if err := ValidateOpenAIOutboundLocaleExtra(platform, extra); err != nil {
+		return nil, err
+	}
 
 	normalized := maps.Clone(extra)
 	if normalized == nil {
