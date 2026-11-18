@@ -201,19 +201,21 @@ func TestScheduledTestPrompt_Antigravity(t *testing.T) {
 		build       func(context.Context, string, string) ([]byte, error)
 	}{
 		{"gemini", "gemini-2.5-flash", svc.buildGeminiTestRequest},
-		{"claude", "claude-sonnet-4-6", svc.buildClaudeTestRequest},
+		{"claude", "claude-sonnet-4-6", func(ctx context.Context, projectID, model string) ([]byte, error) {
+			return svc.buildClaudeTestRequest(ctx, projectID, model, "")
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), scheduledTestPromptKey{}, "9/3=?")
 			body, err := tc.build(ctx, "test-project", tc.model)
 			require.NoError(t, err)
 			require.Equal(t, "9/3=?", gjson.GetBytes(body, "request.contents.0.parts.0.text").String())
-			require.EqualValues(t, 128, gjson.GetBytes(body, "request.generationConfig.maxOutputTokens").Int())
+			require.EqualValues(t, antigravityTestMaxOutputTokens, gjson.GetBytes(body, "request.generationConfig.maxOutputTokens").Int())
 
 			body, err = tc.build(context.Background(), "test-project", tc.model)
 			require.NoError(t, err)
-			require.Equal(t, ".", gjson.GetBytes(body, "request.contents.0.parts.0.text").String())
-			require.EqualValues(t, 1, gjson.GetBytes(body, "request.generationConfig.maxOutputTokens").Int())
+			require.Equal(t, "hi", gjson.GetBytes(body, "request.contents.0.parts.0.text").String())
+			require.EqualValues(t, antigravityTestMaxOutputTokens, gjson.GetBytes(body, "request.generationConfig.maxOutputTokens").Int())
 		})
 	}
 	ctx := context.WithValue(context.Background(), scheduledTestPromptKey{}, "9/3=?")

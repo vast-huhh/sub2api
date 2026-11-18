@@ -39,7 +39,7 @@ func TestCodexAccountIdentityPreservesRootThreadRelations(t *testing.T) {
 	body := []byte(fmt.Sprintf(`{"prompt_cache_key":%q,"client_metadata":{"session_id":%q,"thread_id":%q,"x-codex-window-id":"%s:3","x-codex-turn-metadata":%q}}`,
 		relationRootThread, relationRootThread, relationRootThread, relationRootThread, turnMetadata))
 
-	scoped, changed, err := applyCodexAccountIdentityClientMetadataRaw(body, account, 77)
+	scoped, changed, err := applyCodexAccountIdentityClientMetadataRaw(body, account, 77, relationRootThread)
 	require.NoError(t, err)
 	require.True(t, changed)
 
@@ -64,7 +64,7 @@ func TestCodexAccountIdentityPreservesSubagentReferences(t *testing.T) {
 	body := []byte(fmt.Sprintf(`{"prompt_cache_key":"review:%s","client_metadata":{"session_id":%q,"thread_id":%q,"x-codex-parent-thread-id":%q,"x-codex-turn-metadata":%q}}`,
 		relationRootThread, relationRootThread, relationChildThread, relationRootThread, turnMetadata))
 
-	scoped, _, err := applyCodexAccountIdentityClientMetadataRaw(body, account, 77)
+	scoped, _, err := applyCodexAccountIdentityClientMetadataRaw(body, account, 77, relationRootThread)
 	require.NoError(t, err)
 
 	rootScoped := scopeCodexAccountIdentityValue(account, 77, "session", relationRootThread)
